@@ -27,11 +27,20 @@ const router = useRouter();
 const authStore = useAuthStore();
 
 const isRecruiter = computed(() => authStore.activeIdentity === 'recruiter');
-const activeSegment = computed(() => (route.name === 'home-publish' ? 'publish' : 'overview'));
+const activeSegment = computed(() => {
+  if (route.name === 'home-publish') {
+    return 'publish';
+  }
+  if (route.name === 'home-my-jobs') {
+    return 'my-jobs';
+  }
+  return 'overview';
+});
 const segmentOptions = computed(() => {
   return [
     { label: '招聘总览', value: 'overview' },
-    { label: '发布岗位', value: 'publish' }
+    { label: '发布岗位', value: 'publish' },
+    { label: '我的发布', value: 'my-jobs' }
   ];
 });
 
@@ -40,12 +49,16 @@ function onSegmentChange(value) {
     router.push({ name: 'home-publish' });
     return;
   }
+  if (value === 'my-jobs') {
+    router.push({ name: 'home-my-jobs' });
+    return;
+  }
   router.push({ name: 'home-overview' });
 }
 
 function switchIdentity(identity) {
   authStore.setActiveIdentity(identity);
-  if (identity !== 'recruiter' && route.name === 'home-publish') {
+  if (identity !== 'recruiter' && (route.name === 'home-publish' || route.name === 'home-my-jobs')) {
     router.push({ name: 'home-overview' });
   }
 }

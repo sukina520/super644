@@ -4,6 +4,7 @@ import LoginView from '../views/LoginView.vue';
 import HomeView from '../views/HomeView.vue';
 import HomeOverviewView from '../views/home/HomeOverviewView.vue';
 import HomePublishJobView from '../views/home/HomePublishJobView.vue';
+import HomeMyJobsView from '../views/home/HomeMyJobsView.vue';
 import JobDetailView from '../views/JobDetailView.vue';
 import SeekerDashboard from '../views/SeekerDashboard.vue';
 import SeekerDetailView from '../views/SeekerDetailView.vue';
@@ -30,6 +31,12 @@ const routes = [
         path: 'publish',
         name: 'home-publish',
         component: HomePublishJobView,
+        meta: { requiresAuth: true, identity: 'recruiter' }
+      },
+      {
+        path: 'my-jobs',
+        name: 'home-my-jobs',
+        component: HomeMyJobsView,
         meta: { requiresAuth: true, identity: 'recruiter' }
       }
     ]

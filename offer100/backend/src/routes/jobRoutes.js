@@ -163,6 +163,90 @@ router.get('/tags', authenticate, async (req, res) => {
   }
 });
 
+router.get('/mine', authenticate, requireIdentity(['recruiter']), async (req, res) => {
+  try {
+    const rows = await all(
+      `SELECT id, title, company, city, salary_range, employment_type, company_size,
+              experience_requirement, education_requirement, category_l1, category_l2,
+              tags, description, publish_at, recruiter_user_id
+       FROM jobs
+       WHERE recruiter_user_id = ?
+       ORDER BY id DESC`,
+      [req.user.id]
+    );
+
+    return res.json(
+      rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        company: row.company,
+        city: row.city,
+        salaryRange: row.salary_range,
+        employmentType: row.employment_type || '不限',
+        companySize: row.company_size || '不限',
+        experienceRequirement: normalizeUnlimited(row.experience_requirement),
+        educationRequirement: normalizeUnlimited(row.education_requirement),
+        categoryL1: row.category_l1 || '',
+        categoryL2: row.category_l2 || '',
+        tags: (() => {
+          try {
+            return row.tags ? JSON.parse(row.tags) : [];
+          } catch (error) {
+            return [];
+          }
+        })(),
+        description: row.description,
+        publishAt: row.publish_at,
+        recruiterUserId: row.recruiter_user_id
+      }))
+    );
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to load recruiter jobs', detail: error.message });
+  }
+});
+
+router.delete('/:id', authenticate, requireIdentity(['recruiter']), async (req, res) => {
+  try {
+    const jobId = Number(req.params.id);
+    if (!jobId) {
+      return res.status(400).json({ message: 'Invalid job id' });
+    }
+
+    const target = await get('SELECT id, recruiter_user_id, title FROM jobs WHERE id = ?', [jobId]);
+    if (!target) {
+      return res.status(404).json({ message: 'Job not found' });
+    }
+
+    if (target.recruiter_user_id !== req.user.id) {
+      return res.status(403).json({ message: '无权删除该岗位' });
+    }
+
+    await run('DELETE FROM jobs WHERE id = ?', [jobId]);
+
+    await trackBehavior({
+      userId: req.user.id,
+      role: req.user.activeIdentity,
+      action: 'delete_job',
+      targetType: 'job',
+      targetId: jobId,
+      extra: { title: target.title }
+    });
+
+    emitRecruitmentUpdate({
+      type: 'job_deleted',
+      payload: {
+        jobId,
+        recruiterUserId: req.user.id,
+        at: new Date().toISOString()
+      }
+    });
+
+    return res.json({ message: 'Job deleted', jobId });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to delete job', detail: error.message });
+  }
+});
+
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const jobId = Number(req.params.id);

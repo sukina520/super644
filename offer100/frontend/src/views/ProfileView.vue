@@ -11,17 +11,17 @@
     <section class="panel">
       <h2>个人/公司信息</h2>
       <form class="job-form" @submit.prevent="saveProfile">
-        <input v-model.trim="form.nickname" placeholder="昵称" />
+        <input v-model.trim="form.nickname" :placeholder="fieldHint('nickname', '昵称')" />
         <label class="file-label">
           头像（本地选择）
           <input type="file" accept="image/*" @change="onAvatarFileChange" />
         </label>
         <img v-if="form.avatarUrl" :src="form.avatarUrl" alt="avatar" class="avatar-preview" />
-        <textarea v-model.trim="form.commonPhrase" placeholder="常用语（用于投递/邀请自动发送）" />
+        <textarea v-model.trim="form.commonPhrase" :placeholder="fieldHint('commonPhrase', '常用语（用于投递/邀请自动发送）')" />
 
         <template v-if="authStore.activeIdentity === 'jobseeker'">
-          <input v-model.trim="form.fullName" placeholder="姓名" />
-          <input v-model.number="form.age" placeholder="年龄" />
+          <input v-model.trim="form.fullName" :placeholder="fieldHint('fullName', '姓名')" />
+          <input v-model.number="form.age" :placeholder="fieldHint('age', '年龄')" />
           <label>
             性别
             <div class="radio-row">
@@ -47,15 +47,15 @@
               <option v-for="item in salaryOptions" :key="item" :value="item">{{ item }}</option>
             </select>
           </label>
-          <input v-model.trim="form.school" placeholder="学校" />
-          <input v-model.trim="form.major" placeholder="专业" />
+          <input v-model.trim="form.school" :placeholder="fieldHint('school', '学校')" />
+          <input v-model.trim="form.major" :placeholder="fieldHint('major', '专业')" />
           <label>
             学历
             <select v-model="form.degree">
               <option v-for="item in degreeOptions" :key="item" :value="item">{{ item }}</option>
             </select>
           </label>
-          <input v-model.trim="form.graduationCohort" placeholder="毕业届别（如：2026届）" />
+          <input v-model.trim="form.graduationCohort" :placeholder="fieldHint('graduationCohort', '毕业届别（如：2026届）')" />
           <label>
             工作经验
             <select v-model="form.workExperience">
@@ -68,18 +68,18 @@
               <option v-for="item in personalLocationOptions" :key="item" :value="item">{{ item }}</option>
             </select>
           </label>
-          <input v-model.trim="form.contactPhone" placeholder="联系电话" />
-          <input v-model.trim="form.contactEmail" placeholder="联系邮箱" />
-          <input v-model.trim="form.strengths" placeholder="个人优势" />
-          <input v-model.trim="form.expectedPosition" placeholder="期望岗位" />
-          <textarea v-model.trim="form.internshipExperience" placeholder="实习经历" />
-          <textarea v-model.trim="form.projectExperience" placeholder="项目经历" />
-          <textarea v-model.trim="form.competitionExperience" placeholder="比赛经历" />
-          <textarea v-model.trim="form.campusExperience" placeholder="在校经历" />
+          <input v-model.trim="form.contactPhone" :placeholder="fieldHint('contactPhone', '联系电话')" />
+          <input v-model.trim="form.contactEmail" :placeholder="fieldHint('contactEmail', '联系邮箱')" />
+          <input v-model.trim="form.strengths" :placeholder="fieldHint('strengths', '个人优势')" />
+          <input v-model.trim="form.expectedPosition" :placeholder="fieldHint('expectedPosition', '期望岗位')" />
+          <textarea v-model.trim="form.internshipExperience" :placeholder="fieldHint('internshipExperience', '实习经历')" />
+          <textarea v-model.trim="form.projectExperience" :placeholder="fieldHint('projectExperience', '项目经历')" />
+          <textarea v-model.trim="form.competitionExperience" :placeholder="fieldHint('competitionExperience', '比赛经历')" />
+          <textarea v-model.trim="form.campusExperience" :placeholder="fieldHint('campusExperience', '在校经历')" />
         </template>
 
         <template v-else>
-          <input v-model.trim="form.companyName" placeholder="公司名称" />
+          <input v-model.trim="form.companyName" :placeholder="fieldHint('companyName', '公司名称')" />
           <label>
             公司位置
             <select v-model="form.companyAddress">
@@ -92,7 +92,7 @@
               <option v-for="item in companySizeOptions" :key="item" :value="item">{{ item }}</option>
             </select>
           </label>
-          <textarea v-model.trim="form.companyIntro" placeholder="公司介绍" />
+          <textarea v-model.trim="form.companyIntro" :placeholder="fieldHint('companyIntro', '公司介绍')" />
         </template>
 
         <div class="actions">
@@ -160,6 +160,34 @@ const form = reactive({
   campusExperience: ''
 });
 
+const profileSnapshot = reactive({
+  nickname: '',
+  commonPhrase: '',
+  companyName: '',
+  companyIntro: '',
+  fullName: '',
+  age: '',
+  school: '',
+  major: '',
+  graduationCohort: '',
+  contactPhone: '',
+  contactEmail: '',
+  strengths: '',
+  expectedPosition: '',
+  internshipExperience: '',
+  projectExperience: '',
+  competitionExperience: '',
+  campusExperience: ''
+});
+
+function fieldHint(field, fallback) {
+  const current = String(profileSnapshot[field] ?? '').trim();
+  if (!current) {
+    return fallback;
+  }
+  return `当前：${current}`;
+}
+
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -207,6 +235,26 @@ async function loadProfile() {
     expectedJobType: data.profile?.expected_job_type || '不限',
     strengths: data.profile?.strengths || '',
     jobHuntingStatus: data.profile?.job_hunting_status || '考虑机会',
+    expectedPosition: data.profile?.expected_position || '',
+    internshipExperience: data.profile?.internship_experience || '',
+    projectExperience: data.profile?.project_experience || '',
+    competitionExperience: data.profile?.competition_experience || '',
+    campusExperience: data.profile?.campus_experience || ''
+  });
+
+  Object.assign(profileSnapshot, {
+    nickname: data.user.nickname || '',
+    commonPhrase: data.profile?.common_phrase || '',
+    companyName: data.profile?.company_name || '',
+    companyIntro: data.profile?.company_intro || '',
+    fullName: data.profile?.full_name || '',
+    age: data.profile?.age || '',
+    school: data.profile?.school || '',
+    major: data.profile?.major || '',
+    graduationCohort: data.profile?.graduation_cohort || '',
+    contactPhone: data.profile?.contact_phone || '',
+    contactEmail: data.profile?.contact_email || '',
+    strengths: data.profile?.strengths || '',
     expectedPosition: data.profile?.expected_position || '',
     internshipExperience: data.profile?.internship_experience || '',
     projectExperience: data.profile?.project_experience || '',
