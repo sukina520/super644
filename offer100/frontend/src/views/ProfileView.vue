@@ -251,13 +251,51 @@ function fileToDataUrl(file) {
   });
 }
 
+function loadImage(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('头像读取失败'));
+    image.src = dataUrl;
+  });
+}
+
+async function compressAvatar(file) {
+  const originalDataUrl = await fileToDataUrl(file);
+  const image = await loadImage(originalDataUrl);
+  const maxEdge = 512;
+  const ratio = Math.min(1, maxEdge / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * ratio));
+  const height = Math.max(1, Math.round(image.height * ratio));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return originalDataUrl;
+  }
+
+  ctx.drawImage(image, 0, 0, width, height);
+
+  // Keep avatar payload compact so profile save won't exceed backend body limits.
+  let quality = 0.82;
+  let result = canvas.toDataURL('image/jpeg', quality);
+  while (result.length > 280000 && quality > 0.45) {
+    quality -= 0.08;
+    result = canvas.toDataURL('image/jpeg', quality);
+  }
+
+  return result;
+}
+
 async function onAvatarFileChange(event) {
   const file = event.target.files?.[0];
   if (!file) {
     return;
   }
   try {
-    form.avatarUrl = await fileToDataUrl(file);
+    form.avatarUrl = await compressAvatar(file);
     tip.value = '头像已选择，点击保存资料后生效';
   } catch (error) {
     tip.value = '头像读取失败，请重试';
