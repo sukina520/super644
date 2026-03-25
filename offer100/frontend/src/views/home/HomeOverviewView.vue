@@ -343,6 +343,13 @@ function matchSalaryBand(salaryRange, band) {
 
 let socket;
 
+function isCurrentUser(userId) {
+  if (!authStore.user?.id || !userId) {
+    return false;
+  }
+  return String(userId) === String(authStore.user.id);
+}
+
 async function loadData() {
   if (isRecruiter.value) {
     const params = {};
@@ -371,7 +378,7 @@ async function loadData() {
     const seekersRes = await http.get('/resume/seekers', { params });
 
     const data = seekersRes.data;
-    seekerCards.value = data;
+    seekerCards.value = (Array.isArray(data) ? data : []).filter((seeker) => !isCurrentUser(seeker.userId));
     jobCards.value = [];
     return;
   }
@@ -379,7 +386,7 @@ async function loadData() {
   const jobsRes = await http.get('/jobs');
 
   const data = jobsRes.data;
-  jobCards.value = data;
+  jobCards.value = (Array.isArray(data) ? data : []).filter((job) => !isCurrentUser(job.recruiterUserId));
   seekerCards.value = [];
 }
 

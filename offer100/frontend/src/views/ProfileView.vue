@@ -11,88 +11,139 @@
     <section class="panel">
       <h2>个人/公司信息</h2>
       <form class="job-form" @submit.prevent="saveProfile">
-        <input v-model.trim="form.nickname" :placeholder="fieldHint('nickname', '昵称')" />
+        <label class="field-row">
+          <span class="field-name">昵称：</span>
+          <input v-model.trim="form.nickname" :placeholder="fieldHint('nickname', '昵称')" />
+        </label>
         <label class="file-label">
           头像（本地选择）
           <input type="file" accept="image/*" @change="onAvatarFileChange" />
         </label>
         <img v-if="form.avatarUrl" :src="form.avatarUrl" alt="avatar" class="avatar-preview" />
-        <textarea v-model.trim="form.commonPhrase" :placeholder="fieldHint('commonPhrase', '常用语（用于投递/邀请自动发送）')" />
+        <label class="field-row">
+          <span class="field-name">常用语：</span>
+          <textarea v-model.trim="form.commonPhrase" :placeholder="fieldHint('commonPhrase', '常用语（用于投递/邀请自动发送）')" />
+        </label>
 
         <template v-if="authStore.activeIdentity === 'jobseeker'">
-          <input v-model.trim="form.fullName" :placeholder="fieldHint('fullName', '姓名')" />
-          <input v-model.number="form.age" :placeholder="fieldHint('age', '年龄')" />
-          <label>
-            性别
+          <label class="field-row">
+            <span class="field-name">姓名：</span>
+            <input v-model.trim="form.fullName" :placeholder="fieldHint('fullName', '姓名')" />
+          </label>
+          <label class="field-row">
+            <span class="field-name">年龄：</span>
+            <input v-model.number="form.age" :placeholder="fieldHint('age', '年龄')" />
+          </label>
+          <div class="field-row field-row-block">
+            <span class="field-name">性别：</span>
             <div class="radio-row">
               <label><input v-model="form.gender" type="radio" value="男" /> 男</label>
               <label><input v-model="form.gender" type="radio" value="女" /> 女</label>
             </div>
-          </label>
-          <label>
-            求职状态
+          </div>
+          <label class="field-row">
+            <span class="field-name">求职状态：</span>
             <select v-model="form.jobHuntingStatus">
               <option v-for="item in jobHuntingStatusOptions" :key="item" :value="item">{{ item }}</option>
             </select>
           </label>
-          <label>
-            求职类型
+          <label class="field-row">
+            <span class="field-name">求职类型：</span>
             <select v-model="form.expectedJobType">
               <option v-for="item in jobTypeOptions" :key="item" :value="item">{{ item }}</option>
             </select>
           </label>
-          <label>
-            期望薪资
+          <label class="field-row">
+            <span class="field-name">期望薪资：</span>
             <select v-model="form.expectedSalary">
               <option v-for="item in salaryOptions" :key="item" :value="item">{{ item }}</option>
             </select>
           </label>
-          <input v-model.trim="form.school" :placeholder="fieldHint('school', '学校')" />
-          <input v-model.trim="form.major" :placeholder="fieldHint('major', '专业')" />
-          <label>
-            学历
+          <label class="field-row">
+            <span class="field-name">学校：</span>
+            <input v-model.trim="form.school" :placeholder="fieldHint('school', '学校')" />
+          </label>
+          <label class="field-row">
+            <span class="field-name">专业：</span>
+            <input v-model.trim="form.major" :placeholder="fieldHint('major', '专业')" />
+          </label>
+          <label class="field-row">
+            <span class="field-name">学历：</span>
             <select v-model="form.degree">
               <option v-for="item in degreeOptions" :key="item" :value="item">{{ item }}</option>
             </select>
           </label>
-          <input v-model.trim="form.graduationCohort" :placeholder="fieldHint('graduationCohort', '毕业届别（如：2026届）')" />
-          <label>
-            工作经验
+          <label class="field-row">
+            <span class="field-name">毕业届别：</span>
+            <input v-model.trim="form.graduationCohort" :placeholder="fieldHint('graduationCohort', '毕业届别（如：2026届）')" />
+          </label>
+          <label class="field-row">
+            <span class="field-name">工作经验：</span>
             <select v-model="form.workExperience">
               <option v-for="item in workExperienceOptions" :key="item" :value="item">{{ item }}</option>
             </select>
           </label>
-          <label>
-            个人所在地
+          <label class="field-row">
+            <span class="field-name">个人所在地：</span>
             <select v-model="form.location">
               <option v-for="item in personalLocationOptions" :key="item" :value="item">{{ item }}</option>
             </select>
           </label>
-          <input v-model.trim="form.contactPhone" :placeholder="fieldHint('contactPhone', '联系电话')" />
-          <input v-model.trim="form.contactEmail" :placeholder="fieldHint('contactEmail', '联系邮箱')" />
-          <input v-model.trim="form.strengths" :placeholder="fieldHint('strengths', '个人优势')" />
-          <input v-model.trim="form.expectedPosition" :placeholder="fieldHint('expectedPosition', '期望岗位')" />
-          <textarea v-model.trim="form.internshipExperience" :placeholder="fieldHint('internshipExperience', '实习经历')" />
-          <textarea v-model.trim="form.projectExperience" :placeholder="fieldHint('projectExperience', '项目经历')" />
-          <textarea v-model.trim="form.competitionExperience" :placeholder="fieldHint('competitionExperience', '比赛经历')" />
-          <textarea v-model.trim="form.campusExperience" :placeholder="fieldHint('campusExperience', '在校经历')" />
+          <label class="field-row">
+            <span class="field-name">联系电话：</span>
+            <input v-model.trim="form.contactPhone" :placeholder="fieldHint('contactPhone', '联系电话')" />
+          </label>
+          <label class="field-row">
+            <span class="field-name">联系邮箱：</span>
+            <input v-model.trim="form.contactEmail" :placeholder="fieldHint('contactEmail', '联系邮箱')" />
+          </label>
+          <label class="field-row">
+            <span class="field-name">个人优势：</span>
+            <input v-model.trim="form.strengths" :placeholder="fieldHint('strengths', '个人优势')" />
+          </label>
+          <label class="field-row">
+            <span class="field-name">期望岗位：</span>
+            <input v-model.trim="form.expectedPosition" :placeholder="fieldHint('expectedPosition', '期望岗位')" />
+          </label>
+          <label class="field-row">
+            <span class="field-name">实习经历：</span>
+            <textarea v-model.trim="form.internshipExperience" :placeholder="fieldHint('internshipExperience', '实习经历')" />
+          </label>
+          <label class="field-row">
+            <span class="field-name">项目经历：</span>
+            <textarea v-model.trim="form.projectExperience" :placeholder="fieldHint('projectExperience', '项目经历')" />
+          </label>
+          <label class="field-row">
+            <span class="field-name">比赛经历：</span>
+            <textarea v-model.trim="form.competitionExperience" :placeholder="fieldHint('competitionExperience', '比赛经历')" />
+          </label>
+          <label class="field-row">
+            <span class="field-name">在校经历：</span>
+            <textarea v-model.trim="form.campusExperience" :placeholder="fieldHint('campusExperience', '在校经历')" />
+          </label>
         </template>
 
         <template v-else>
-          <input v-model.trim="form.companyName" :placeholder="fieldHint('companyName', '公司名称')" />
-          <label>
-            公司位置
+          <label class="field-row">
+            <span class="field-name">公司名称：</span>
+            <input v-model.trim="form.companyName" :placeholder="fieldHint('companyName', '公司名称')" />
+          </label>
+          <label class="field-row">
+            <span class="field-name">公司位置：</span>
             <select v-model="form.companyAddress">
               <option v-for="item in cityOptions" :key="item" :value="item">{{ item }}</option>
             </select>
           </label>
-          <label>
-            公司规模
+          <label class="field-row">
+            <span class="field-name">公司规模：</span>
             <select v-model="form.companySize">
               <option v-for="item in companySizeOptions" :key="item" :value="item">{{ item }}</option>
             </select>
           </label>
-          <textarea v-model.trim="form.companyIntro" :placeholder="fieldHint('companyIntro', '公司介绍')" />
+          <label class="field-row">
+            <span class="field-name">公司介绍：</span>
+            <textarea v-model.trim="form.companyIntro" :placeholder="fieldHint('companyIntro', '公司介绍')" />
+          </label>
         </template>
 
         <div class="actions">
@@ -301,6 +352,26 @@ onMounted(loadProfile);
 </script>
 
 <style scoped>
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.field-row-block {
+  align-items: flex-start;
+}
+
+.field-name {
+  flex: 0 0 96px;
+  color: #243b63;
+  font-size: 14px;
+}
+
+.field-row :is(input, select, textarea) {
+  flex: 1;
+}
+
 .actions {
   display: flex;
   gap: 10px;

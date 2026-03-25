@@ -53,8 +53,8 @@
 
           <div class="actions">
             <button v-if="isJobseeker" @click="applyJob">投递（自动发送个人信息+常用语）</button>
-            <button @click="openChat">与招聘者聊天</button>
-            <router-link to="/jobs">返回职位列表</router-link>
+            <button v-if="canChatRecruiter" @click="openChat">与招聘者聊天</button>
+            <router-link :to="backLink">{{ backLinkText }}</router-link>
           </div>
           <p v-if="tip" class="tip">{{ tip }}</p>
         </el-card>
@@ -78,6 +78,18 @@ const DEFAULT_AVATAR = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/20
 const job = ref(null);
 const tip = ref('');
 const isJobseeker = computed(() => authStore.activeIdentity === 'jobseeker');
+const fromMyJobs = computed(() => route.query.from === 'my-jobs');
+const canChatRecruiter = computed(() => {
+  if (!job.value?.recruiterUserId) {
+    return false;
+  }
+  if (fromMyJobs.value) {
+    return false;
+  }
+  return job.value.recruiterUserId !== authStore.user?.id;
+});
+const backLink = computed(() => (fromMyJobs.value ? '/my-jobs' : '/jobs'));
+const backLinkText = computed(() => (fromMyJobs.value ? '返回我的发布' : '返回职位列表'));
 
 async function loadJob() {
   const { data } = await http.get(`/jobs/${route.params.id}`);
