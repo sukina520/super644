@@ -68,6 +68,8 @@
               <option v-for="item in personalLocationOptions" :key="item" :value="item">{{ item }}</option>
             </select>
           </label>
+          <input v-model.trim="form.contactPhone" placeholder="联系电话" />
+          <input v-model.trim="form.contactEmail" placeholder="联系邮箱" />
           <input v-model.trim="form.strengths" placeholder="个人优势" />
           <input v-model.trim="form.expectedPosition" placeholder="期望岗位" />
           <textarea v-model.trim="form.internshipExperience" placeholder="实习经历" />
@@ -146,6 +148,8 @@ const form = reactive({
   graduationCohort: '',
   workExperience: '',
   location: '其他',
+  contactPhone: '',
+  contactEmail: '',
   expectedJobType: '不限',
   strengths: '',
   jobHuntingStatus: '考虑机会',
@@ -198,6 +202,8 @@ async function loadProfile() {
     graduationCohort: data.profile?.graduation_cohort || '',
     workExperience: data.profile?.work_experience || '',
     location: data.profile?.location || '其他',
+    contactPhone: data.profile?.contact_phone || '',
+    contactEmail: data.profile?.contact_email || '',
     expectedJobType: data.profile?.expected_job_type || '不限',
     strengths: data.profile?.strengths || '',
     jobHuntingStatus: data.profile?.job_hunting_status || '考虑机会',

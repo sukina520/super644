@@ -72,11 +72,12 @@ async function seedUsers() {
       username: 'admin',
       password: '123456',
       nickname: '管理员',
-      role: 'recruiter',
-      major: 'Computer Science',
-      preferenceTags: ['fullstack', 'management'],
-      identities: ['recruiter', 'jobseeker'],
-      initialIdentity: 'recruiter'
+      role: 'admin',
+      major: 'Admin',
+      preferenceTags: [],
+      identities: '[]',
+      initialIdentity: 'admin',
+      status: 'active'
     },
     {
       username: 'studentA',
@@ -85,8 +86,9 @@ async function seedUsers() {
       role: 'jobseeker',
       major: 'Software Engineering',
       preferenceTags: ['frontend', 'vue'],
-      identities: ['recruiter', 'jobseeker'],
-      initialIdentity: 'jobseeker'
+      identities: '["recruiter", "jobseeker"]',
+      initialIdentity: 'jobseeker',
+      status: 'active'
     },
     {
       username: 'socialUser',
@@ -95,8 +97,9 @@ async function seedUsers() {
       role: 'jobseeker',
       major: 'N/A',
       preferenceTags: ['operations', 'marketing'],
-      identities: ['recruiter', 'jobseeker'],
-      initialIdentity: 'jobseeker'
+      identities: '["recruiter", "jobseeker"]',
+      initialIdentity: 'jobseeker',
+      status: 'active'
     }
   ];
 
@@ -111,8 +114,9 @@ async function seedUsers() {
         preference_tags,
         identities,
         initial_identity,
+        status,
         created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         user.username,
         user.password,
@@ -120,8 +124,9 @@ async function seedUsers() {
         user.role,
         user.major,
         JSON.stringify(user.preferenceTags),
-        JSON.stringify(user.identities),
+        user.identities,
         user.initialIdentity,
+        user.status || 'active',
         new Date().toISOString()
       ]
     );
@@ -435,6 +440,8 @@ async function initDb() {
       graduation_cohort TEXT,
       work_experience TEXT,
       location TEXT,
+      contact_phone TEXT,
+      contact_email TEXT,
       gender TEXT,
       age INTEGER,
       strengths TEXT,
@@ -509,6 +516,8 @@ async function initDb() {
       graduation_cohort TEXT,
       work_experience TEXT,
       location TEXT,
+      contact_phone TEXT,
+      contact_email TEXT,
       job_hunting_status TEXT,
       expected_job_type TEXT,
       expected_position TEXT,
@@ -539,6 +548,8 @@ async function initDb() {
   await ensureColumn('resumes', 'graduation_cohort', 'TEXT');
   await ensureColumn('resumes', 'work_experience', 'TEXT');
   await ensureColumn('resumes', 'location', 'TEXT');
+  await ensureColumn('resumes', 'contact_phone', 'TEXT');
+  await ensureColumn('resumes', 'contact_email', 'TEXT');
   await ensureColumn('resumes', 'job_hunting_status', 'TEXT');
   await ensureColumn('resumes', 'expected_job_type', 'TEXT');
   await ensureColumn('resumes', 'expected_position', 'TEXT');
@@ -567,6 +578,8 @@ async function initDb() {
   await ensureColumn('identity_profiles', 'graduation_cohort', 'TEXT');
   await ensureColumn('identity_profiles', 'work_experience', 'TEXT');
   await ensureColumn('identity_profiles', 'location', 'TEXT');
+  await ensureColumn('identity_profiles', 'contact_phone', 'TEXT');
+  await ensureColumn('identity_profiles', 'contact_email', 'TEXT');
   await ensureColumn('identity_profiles', 'job_hunting_status', 'TEXT');
   await ensureColumn('identity_profiles', 'expected_job_type', 'TEXT');
 
@@ -700,6 +713,25 @@ async function initDb() {
   );
 
   await seedUsers();
+  
+  // 添加 user_contacts 表用于管理聊天列表的置顶和删除
+  await run(
+    `CREATE TABLE IF NOT EXISTS user_contacts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      contact_user_id INTEGER NOT NULL,
+      is_pinned INTEGER DEFAULT 0,
+      is_deleted INTEGER DEFAULT 0,
+      last_message_at TEXT,
+      created_at TEXT NOT NULL,
+      UNIQUE(user_id, contact_user_id)
+    )`
+  );
+
+  // 为 users 表添加 status 和 role 字段（管理员功能）
+  await ensureColumn('users', 'status', "TEXT DEFAULT 'active'");
+  await ensureColumn('users', 'role', "TEXT DEFAULT 'user'");
+
   await seedJobs();
   await seedCompanies();
   await seedResumes();

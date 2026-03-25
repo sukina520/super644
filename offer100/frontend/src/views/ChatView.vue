@@ -13,24 +13,53 @@
 
       <div class="chat-wrap">
         <aside class="chat-users">
-          <el-button
+          <div
             v-for="u in contacts"
             :key="u.id"
-            class="chat-user"
+            class="contact-item"
             :class="{ active: u.id === activeContactId }"
-            type="default"
-            plain
-            @click="selectContact(u.id)"
           >
-            <el-avatar :src="u.avatarUrl || DEFAULT_AVATAR" :size="26" />
-            <span>{{ u.nickname || u.username }}</span>
-            <el-badge
-              v-if="u.unreadCount > 0"
-              :value="u.unreadCount"
-              type="danger"
-              class="contact-badge"
-            />
-          </el-button>
+            <el-button
+              class="chat-user"
+              type="default"
+              plain
+              @click="selectContact(u.id)"
+            >
+              <el-avatar :src="u.avatarUrl || DEFAULT_AVATAR" :size="26" />
+              <span>{{ u.nickname || u.username }}</span>
+              <el-badge
+                v-if="u.unreadCount > 0"
+                :value="u.unreadCount"
+                type="danger"
+                class="contact-badge"
+              />
+            </el-button>
+            <div class="contact-actions">
+              <el-button
+                v-if="u.isPinned"
+                icon="Unlock"
+                size="small"
+                type="text"
+                @click.stop="unpinContact(u.id)"
+                title="取消置顶"
+              />
+              <el-button
+                v-else
+                icon="Pin"
+                size="small"
+                type="text"
+                @click.stop="pinContact(u.id)"
+                title="置顶"
+              />
+              <el-button
+                icon="Delete"
+                size="small"
+                type="text"
+                @click.stop="deleteContact(u.id)"
+                title="删除聊天"
+              />
+            </div>
+          </div>
           <el-empty v-if="contacts.length === 0" description="暂无历史消息，聊天界面默认空白" :image-size="70" />
         </aside>
 
@@ -40,7 +69,7 @@
             description="暂无会话，请先通过投递/邀请/互发消息建立联系"
             :image-size="90"
           />
-          <div v-else class="chat-list">
+          <div v-else ref="chatListRef" class="chat-list">
             <el-empty v-if="messages.length === 0" description="暂无消息，开始沟通吧" :image-size="80" />
             <div
               v-for="msg in messages"
@@ -94,7 +123,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { io } from 'socket.io-client';
 import http from '../api/http';
@@ -109,6 +138,7 @@ const contacts = ref([]);
 const messages = ref([]);
 const activeContactId = ref(0);
 const messageText = ref('');
+const chatListRef = ref(null);
 const DEFAULT_AVATAR = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="40" fill="%23dbeafe"/><circle cx="40" cy="30" r="14" fill="%2393c5fd"/><path d="M16 66c4-12 14-18 24-18s20 6 24 18" fill="%2393c5fd"/></svg>';
 
 let socket;
@@ -150,10 +180,18 @@ async function loadContacts() {
   }
 }
 
+async function scrollChatToBottom() {
+  await nextTick();
+  if (chatListRef.value) {
+    chatListRef.value.scrollTop = chatListRef.value.scrollHeight;
+  }
+}
+
 async function loadMessages() {
   if (!activeContactId.value) return;
   const { data } = await http.get(`/chat/messages/${activeContactId.value}`);
   messages.value = data;
+  await scrollChatToBottom();
 }
 
 async function sendMessage() {
@@ -178,6 +216,37 @@ async function selectContact(userId) {
   }
   activeContactId.value = userId;
   await loadMessages();
+}
+
+async function pinContact(userId) {
+  try {
+    await http.post(`/chat/contacts/${userId}/pin`);
+    await loadContacts();
+  } catch (error) {
+    console.error('Failed to pin contact', error);
+  }
+}
+
+async function unpinContact(userId) {
+  try {
+    await http.post(`/chat/contacts/${userId}/unpin`);
+    await loadContacts();
+  } catch (error) {
+    console.error('Failed to unpin contact', error);
+  }
+}
+
+async function deleteContact(userId) {
+  try {
+    await http.post(`/chat/contacts/${userId}/delete`);
+    if (activeContactId.value === userId) {
+      activeContactId.value = 0;
+      messages.value = [];
+    }
+    await loadContacts();
+  } catch (error) {
+    console.error('Failed to delete contact', error);
+  }
 }
 
 async function switchIdentity(identity) {
@@ -287,6 +356,13 @@ watch(
   }
 );
 
+watch(
+  () => messages.value.length,
+  async () => {
+    await scrollChatToBottom();
+  }
+);
+
 onUnmounted(() => {
   if (socket) {
     socket.disconnect();
@@ -314,6 +390,12 @@ onUnmounted(() => {
   gap: 8px;
 }
 
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .chat-user {
   justify-content: flex-start;
   width: 100%;
@@ -322,6 +404,21 @@ onUnmounted(() => {
   gap: 8px;
   padding: 8px 10px;
   border-radius: 8px;
+}
+
+.contact-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.contact-item:hover .contact-actions {
+  opacity: 1;
+}
+
+.contact-item.active .contact-actions {
+  opacity: 1;
 }
 
 .chat-users :deep(.el-button + .el-button) {

@@ -6,49 +6,66 @@
     <template v-if="isRecruiter">
       <h3>求职者组件卡片（点击查看详情）</h3>
       <p class="filter-tip">招聘者关键词搜索范围：个人优势 + 期望岗位</p>
-      <el-form :inline="true" class="search-bar">
-        <el-form-item label="关键词">
-          <el-input
-            v-model.trim="seekerKeyword"
-            placeholder="搜索个人优势 / 期望岗位"
-            clearable
-            style="width: 260px"
-            @change="loadData"
-          />
-        </el-form-item>
-        <el-form-item label="求职类型">
-          <el-select v-model="seekerJobTypeFilter" style="width: 130px" @change="loadData">
-            <el-option v-for="opt in seekerJobTypeOptions" :key="opt" :label="opt" :value="opt" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="薪资待遇">
-          <el-select v-model="seekerSalaryFilter" style="width: 130px" @change="loadData">
-            <el-option v-for="opt in seekerSalaryOptions" :key="opt" :label="opt" :value="opt" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="学历要求">
-          <el-select v-model="seekerDegreeFilter" style="width: 130px" @change="loadData">
-            <el-option v-for="opt in seekerDegreeOptions" :key="opt" :label="opt" :value="opt" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="工作经验">
-          <el-select v-model="seekerWorkExperienceFilter" style="width: 130px" @change="loadData">
-            <el-option v-for="opt in seekerWorkExperienceOptions" :key="opt" :label="opt" :value="opt" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="个人所在地">
-          <el-select v-model="seekerLocationFilter" style="width: 160px" @change="loadData">
-            <el-option v-for="opt in seekerLocationOptions" :key="opt" :label="opt" :value="opt" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="求职状态">
-          <el-select v-model="seekerStatusFilter" style="width: 130px" @change="loadData">
-            <el-option v-for="opt in seekerStatusOptions" :key="opt" :label="opt" :value="opt" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button @click="resetSeekerFilters">重置</el-button>
-        </el-form-item>
+      <el-form class="search-bar">
+        <el-row :gutter="12">
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="关键词">
+              <el-input
+                v-model.trim="seekerKeyword"
+                placeholder="搜索个人优势 / 期望岗位"
+                clearable
+                @change="loadData"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="求职类型">
+              <el-select v-model="seekerJobTypeFilter" style="width: 100%" @change="loadData">
+                <el-option v-for="opt in seekerJobTypeOptions" :key="opt" :label="opt" :value="opt" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="薪资待遇">
+              <el-select v-model="seekerSalaryFilter" style="width: 100%" @change="loadData">
+                <el-option v-for="opt in seekerSalaryOptions" :key="opt" :label="opt" :value="opt" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="学历要求">
+              <el-select v-model="seekerDegreeFilter" style="width: 100%" @change="loadData">
+                <el-option v-for="opt in seekerDegreeOptions" :key="opt" :label="opt" :value="opt" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="工作经验">
+              <el-select v-model="seekerWorkExperienceFilter" style="width: 100%" @change="loadData">
+                <el-option v-for="opt in seekerWorkExperienceOptions" :key="opt" :label="opt" :value="opt" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="个人所在地">
+              <el-select v-model="seekerLocationFilter" style="width: 100%" @change="loadData">
+                <el-option v-for="opt in seekerLocationOptions" :key="opt" :label="opt" :value="opt" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="求职状态">
+              <el-select v-model="seekerStatusFilter" style="width: 100%" @change="loadData">
+                <el-option v-for="opt in seekerStatusOptions" :key="opt" :label="opt" :value="opt" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item>
+              <el-button @click="resetSeekerFilters">重置</el-button>
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
 
       <el-row :gutter="12" class="component-grid">
@@ -66,58 +83,79 @@
     <template v-else>
       <h3>岗位组件卡片（点击查看详情）</h3>
       <p class="filter-tip">求职者关键词搜索范围：岗位名称 + 公司名称 + 公司位置 + 公司详细地址</p>
-      <el-form :inline="true" class="search-bar">
-        <el-form-item label="关键词">
-          <el-input
-            v-model.trim="keyword"
-            placeholder="搜索岗位名称/公司名称/公司位置/详细地址"
-            clearable
-            style="width: 300px"
-          />
-        </el-form-item>
-        <el-form-item label="求职类型">
-          <el-select v-model="jobTypeFilter" style="width: 130px">
-            <el-option v-for="opt in jobTypeOptions" :key="opt" :label="opt" :value="opt" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="薪资待遇">
-          <el-select v-model="salaryFilter" style="width: 130px">
-            <el-option v-for="opt in salaryOptions" :key="opt" :label="opt" :value="opt" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="学历要求">
-          <el-select v-model="educationFilter" style="width: 130px">
-            <el-option v-for="opt in educationOptions" :key="opt" :label="opt" :value="opt" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="工作经验">
-          <el-select v-model="experienceFilter" style="width: 130px">
-            <el-option v-for="opt in experienceOptions" :key="opt" :label="opt" :value="opt" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="公司位置">
-          <el-select v-model="cityFilter" style="width: 140px">
-            <el-option v-for="opt in cityOptions" :key="opt" :label="opt" :value="opt" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="公司规模">
-          <el-select v-model="companySizeFilter" style="width: 140px">
-            <el-option v-for="opt in companySizeOptions" :key="opt" :label="opt" :value="opt" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="外层分类">
-          <el-select v-model="categoryL1Filter" clearable placeholder="外层分类" style="width: 170px">
-            <el-option v-for="opt in categoryOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="内层岗位">
-          <el-select v-model="categoryL2Filter" clearable placeholder="内层岗位" style="width: 220px">
-            <el-option v-for="opt in categoryL2Options" :key="opt" :label="opt" :value="opt" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button @click="resetJobFilters">重置</el-button>
-        </el-form-item>
+      <el-form class="search-bar">
+        <el-row :gutter="12">
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="关键词">
+              <el-input
+                v-model.trim="keyword"
+                placeholder="搜索岗位名称/公司名称/公司位置/详细地址"
+                clearable
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="求职类型">
+              <el-select v-model="jobTypeFilter" style="width: 100%">
+                <el-option v-for="opt in jobTypeOptions" :key="opt" :label="opt" :value="opt" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="薪资待遇">
+              <el-select v-model="salaryFilter" style="width: 100%">
+                <el-option v-for="opt in salaryOptions" :key="opt" :label="opt" :value="opt" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="学历要求">
+              <el-select v-model="educationFilter" style="width: 100%">
+                <el-option v-for="opt in educationOptions" :key="opt" :label="opt" :value="opt" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="工作经验">
+              <el-select v-model="experienceFilter" style="width: 100%">
+                <el-option v-for="opt in experienceOptions" :key="opt" :label="opt" :value="opt" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="公司位置">
+              <el-select v-model="cityFilter" style="width: 100%">
+                <el-option v-for="opt in cityOptions" :key="opt" :label="opt" :value="opt" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="公司规模">
+              <el-select v-model="companySizeFilter" style="width: 100%">
+                <el-option v-for="opt in companySizeOptions" :key="opt" :label="opt" :value="opt" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="外层分类">
+              <el-select v-model="categoryL1Filter" clearable placeholder="外层分类" style="width: 100%">
+                <el-option v-for="opt in categoryOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="内层岗位">
+              <el-select v-model="categoryL2Filter" clearable placeholder="内层岗位" style="width: 100%">
+                <el-option v-for="opt in categoryL2Options" :key="opt" :label="opt" :value="opt" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item>
+              <el-button @click="resetJobFilters">重置</el-button>
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
 
       <el-row :gutter="12" class="component-grid">
@@ -406,7 +444,7 @@ onMounted(async () => {
       return;
     }
 
-    if (event.type === 'seeker_profile_ready' && isRecruiter.value) {
+    if ((event.type === 'seeker_profile_ready' || event.type === 'seeker_profile_updated') && isRecruiter.value) {
       await loadData();
     }
   });

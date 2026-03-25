@@ -45,7 +45,9 @@ router.get('/contacts', authenticate, async (req, res) => {
                   WHEN m.to_user_id = ? AND m.from_user_id = u.id AND COALESCE(m.is_read, 0) = 0
                   THEN 1 ELSE 0
                 END
-              ) AS unread_count
+              ) AS unread_count,
+              COALESCE(uc.is_pinned, 0) AS is_pinned,
+              COALESCE(uc.is_deleted, 0) AS is_deleted
        FROM users u
        INNER JOIN messages m
          ON (
@@ -55,10 +57,12 @@ router.get('/contacts', authenticate, async (req, res) => {
          )
        LEFT JOIN identity_profiles ip
          ON ip.user_id = u.id AND ip.identity = ?
-       WHERE u.id != ?
-       GROUP BY u.id, u.username, u.nickname, ip.avatar_url
-       ORDER BY last_message_at DESC, last_message_id DESC`,
-      [req.user.id, req.user.id, req.user.id, req.user.activeIdentity, req.user.id]
+       LEFT JOIN user_contacts uc
+         ON uc.user_id = ? AND uc.contact_user_id = u.id
+       WHERE u.id != ? AND COALESCE(uc.is_deleted, 0) = 0
+       GROUP BY u.id, u.username, u.nickname, ip.avatar_url, is_pinned, is_deleted
+       ORDER BY is_pinned DESC, last_message_at DESC, last_message_id DESC`,
+      [req.user.id, req.user.id, req.user.id, req.user.activeIdentity, req.user.id, req.user.id]
     );
 
     res.json(
@@ -68,7 +72,8 @@ router.get('/contacts', authenticate, async (req, res) => {
         nickname: row.nickname || row.username,
         avatarUrl: row.avatar_url || '',
         lastMessageAt: row.last_message_at || '',
-        unreadCount: Number(row.unread_count || 0)
+        unreadCount: Number(row.unread_count || 0),
+        isPinned: Boolean(row.is_pinned)
       }))
     );
   } catch (error) {
@@ -303,6 +308,130 @@ router.post('/system-message', authenticate, async (req, res) => {
     return res.status(201).json(saved);
   } catch (error) {
     return res.status(500).json({ message: 'Failed to send system message', detail: error.message });
+  }
+});
+
+// 置顶联系人
+router.post('/contacts/:contactId/pin', authenticate, async (req, res) => {
+  try {
+    const contactId = Number(req.params.contactId);
+    if (!contactId) {
+      return res.status(400).json({ message: 'Invalid contactId' });
+    }
+
+    const existing = await get(
+      'SELECT id FROM user_contacts WHERE user_id = ? AND contact_user_id = ?',
+      [req.user.id, contactId]
+    );
+
+    if (existing) {
+      await run(
+        'UPDATE user_contacts SET is_pinned = 1 WHERE user_id = ? AND contact_user_id = ?',
+        [req.user.id, contactId]
+      );
+    } else {
+      await run(
+        'INSERT INTO user_contacts (user_id, contact_user_id, is_pinned, is_deleted, created_at) VALUES (?, ?, 1, 0, ?)',
+        [req.user.id, contactId, new Date().toISOString()]
+      );
+    }
+
+    return res.json({ message: 'Contact pinned successfully' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to pin contact', detail: error.message });
+  }
+});
+
+// 取消置顶
+router.post('/contacts/:contactId/unpin', authenticate, async (req, res) => {
+  try {
+    const contactId = Number(req.params.contactId);
+    if (!contactId) {
+      return res.status(400).json({ message: 'Invalid contactId' });
+    }
+
+    const existing = await get(
+      'SELECT id FROM user_contacts WHERE user_id = ? AND contact_user_id = ?',
+      [req.user.id, contactId]
+    );
+
+    if (existing) {
+      await run(
+        'UPDATE user_contacts SET is_pinned = 0 WHERE user_id = ? AND contact_user_id = ?',
+        [req.user.id, contactId]
+      );
+    } else {
+      await run(
+        'INSERT INTO user_contacts (user_id, contact_user_id, is_pinned, is_deleted, created_at) VALUES (?, ?, 0, 0, ?)',
+        [req.user.id, contactId, new Date().toISOString()]
+      );
+    }
+
+    return res.json({ message: 'Contact unpinned successfully' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to unpin contact', detail: error.message });
+  }
+});
+
+// 删除聊天记录
+router.post('/contacts/:contactId/delete', authenticate, async (req, res) => {
+  try {
+    const contactId = Number(req.params.contactId);
+    if (!contactId) {
+      return res.status(400).json({ message: 'Invalid contactId' });
+    }
+
+    const existing = await get(
+      'SELECT id FROM user_contacts WHERE user_id = ? AND contact_user_id = ?',
+      [req.user.id, contactId]
+    );
+
+    if (existing) {
+      await run(
+        'UPDATE user_contacts SET is_deleted = 1 WHERE user_id = ? AND contact_user_id = ?',
+        [req.user.id, contactId]
+      );
+    } else {
+      await run(
+        'INSERT INTO user_contacts (user_id, contact_user_id, is_pinned, is_deleted, created_at) VALUES (?, ?, 0, 1, ?)',
+        [req.user.id, contactId, new Date().toISOString()]
+      );
+    }
+
+    return res.json({ message: 'Chat deleted successfully' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to delete chat', detail: error.message });
+  }
+});
+
+// 恢复删除的聊天
+router.post('/contacts/:contactId/restore', authenticate, async (req, res) => {
+  try {
+    const contactId = Number(req.params.contactId);
+    if (!contactId) {
+      return res.status(400).json({ message: 'Invalid contactId' });
+    }
+
+    const existing = await get(
+      'SELECT id FROM user_contacts WHERE user_id = ? AND contact_user_id = ?',
+      [req.user.id, contactId]
+    );
+
+    if (existing) {
+      await run(
+        'UPDATE user_contacts SET is_deleted = 0 WHERE user_id = ? AND contact_user_id = ?',
+        [req.user.id, contactId]
+      );
+    } else {
+      await run(
+        'INSERT INTO user_contacts (user_id, contact_user_id, is_pinned, is_deleted, created_at) VALUES (?, ?, 0, 0, ?)',
+        [req.user.id, contactId, new Date().toISOString()]
+      );
+    }
+
+    return res.json({ message: 'Chat restored successfully' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to restore chat', detail: error.message });
   }
 });
 

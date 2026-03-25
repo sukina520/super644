@@ -8,7 +8,11 @@
         <el-input v-model.trim="jobForm.title" placeholder="如：前端开发工程师" />
       </el-form-item>
       <el-form-item label="公司名称" required>
-        <el-input v-model.trim="jobForm.company" placeholder="如：CampusTech" />
+        <el-input v-model.trim="jobForm.company" placeholder="如：CampusTech">
+          <template #append>
+            <el-button @click="fillFromProfile(true)">使用我的资料</el-button>
+          </template>
+        </el-input>
       </el-form-item>
       <el-form-item label="工作城市" required>
         <el-select v-model="jobForm.city" filterable allow-create default-first-option placeholder="请选择或输入城市">
@@ -88,7 +92,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import http from '../../api/http';
 import { JOB_CATEGORY_TREE } from '../../constants/jobCategories';
 
@@ -134,6 +138,55 @@ async function createJob() {
     tip.value = error.response?.data?.message || '岗位发布失败';
   }
 }
+
+function pickCityFromAddress(address) {
+  const text = String(address || '').trim();
+  if (!text) {
+    return '';
+  }
+  const hit = cityOptions.find((city) => text.includes(city));
+  return hit || '';
+}
+
+async function fillFromProfile(force = false) {
+  try {
+    const { data } = await http.get('/profile/me');
+    const profile = data?.profile || {};
+
+    if (!force && jobForm.company && jobForm.companyAddress && jobForm.companySize && jobForm.companyIntro) {
+      return;
+    }
+
+    if (profile.company_name) {
+      jobForm.company = profile.company_name;
+    }
+    if (profile.company_address) {
+      jobForm.companyAddress = profile.company_address;
+      const city = pickCityFromAddress(profile.company_address);
+      if (city) {
+        jobForm.city = city;
+      }
+    }
+    if (profile.company_size) {
+      jobForm.companySize = profile.company_size;
+    }
+    if (profile.company_intro) {
+      jobForm.companyIntro = profile.company_intro;
+    }
+
+    if (profile.company_name || profile.company_address || profile.company_size || profile.company_intro) {
+      tip.value = '已从个人信息预填公司资料';
+    }
+  } catch (error) {
+    if (force) {
+      tip.value = '读取个人信息失败，请稍后重试';
+    }
+  }
+}
+
+onMounted(() => {
+  fillFromProfile(false);
+});
 </script>
 
 <style scoped>

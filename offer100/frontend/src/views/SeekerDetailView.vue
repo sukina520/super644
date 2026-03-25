@@ -30,6 +30,8 @@
           <el-descriptions-item label="学历">{{ seeker.degree || seeker.education || '-' }}</el-descriptions-item>
           <el-descriptions-item label="工作经验">{{ seeker.workExperience || seeker.experience || '-' }}</el-descriptions-item>
           <el-descriptions-item label="求职类型">{{ seeker.expectedJobType || '不限' }}</el-descriptions-item>
+          <el-descriptions-item label="联系电话">{{ seeker.contactPhone || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="联系邮箱">{{ seeker.contactEmail || '-' }}</el-descriptions-item>
         </el-descriptions>
 
         <el-card shadow="never" class="section-card">
@@ -64,6 +66,7 @@
           </label>
           <button @click="inviteSeeker">邀请应聘（自动发送岗位卡片+常用语）</button>
           <button @click="openChat">与求职者聊天</button>
+          <button @click="exportSeekerWord">导出简历 Word</button>
           <router-link to="/">返回首页</router-link>
         </div>
         <p v-if="tip" class="tip">{{ tip }}</p>
@@ -112,6 +115,21 @@ async function inviteSeeker() {
 
 function openChat() {
   router.push(`/chat?with=${route.params.userId}`);
+}
+
+async function exportSeekerWord() {
+  try {
+    const response = await http.get(`/resume/seekers/${route.params.userId}/export-word`, { responseType: 'blob' });
+    const blob = new Blob([response.data], { type: 'application/msword' });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `seeker-${route.params.userId}.doc`;
+    anchor.click();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    tip.value = error.response?.data?.message || '导出失败';
+  }
 }
 
 function switchIdentity(identity) {

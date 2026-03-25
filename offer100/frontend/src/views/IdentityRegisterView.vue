@@ -62,10 +62,12 @@
           </label>
           <label>
             个人所在地
-            <select v-model="jobseekerProfile.location">
+            <select v-model="jobseekerProfile.location" required>
               <option v-for="item in personalLocationOptions" :key="item" :value="item">{{ item }}</option>
             </select>
           </label>
+          <input v-model.trim="jobseekerProfile.contactPhone" placeholder="联系电话（必填）" required />
+          <input v-model.trim="jobseekerProfile.contactEmail" placeholder="联系邮箱（必填）" required />
           <input v-model.trim="jobseekerProfile.expectedPosition" placeholder="期望岗位" />
           <input v-model.trim="jobseekerProfile.strengths" placeholder="个人优势" required />
           <textarea v-model.trim="jobseekerProfile.projectExperience" placeholder="项目经历" />
@@ -143,6 +145,8 @@ const jobseekerProfile = reactive({
   degree: '不限',
   workExperience: '不限',
   location: '其他',
+  contactPhone: '',
+  contactEmail: '',
   expectedPosition: '',
   strengths: '',
   projectExperience: ''
