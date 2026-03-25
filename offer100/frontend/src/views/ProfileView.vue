@@ -15,9 +15,9 @@
           <span class="field-name">昵称：</span>
           <input v-model.trim="form.nickname" :placeholder="fieldHint('nickname', '昵称')" />
         </label>
-        <label class="file-label">
-          头像（本地选择）
-          <input type="file" accept="image/*" @change="onAvatarFileChange" />
+        <label class="field-row">
+          <span class="field-name">头像：</span>
+          <input class="avatar-file-input" type="file" accept="image/*" @change="onAvatarFileChange" />
         </label>
         <img v-if="form.avatarUrl" :src="form.avatarUrl" alt="avatar" class="avatar-preview" />
         <label class="field-row">
@@ -75,7 +75,9 @@
           </label>
           <label class="field-row">
             <span class="field-name">毕业届别：</span>
-            <input v-model.trim="form.graduationCohort" :placeholder="fieldHint('graduationCohort', '毕业届别（如：2026届）')" />
+            <select v-model="form.graduationCohort">
+              <option v-for="item in graduationCohortOptions" :key="item" :value="item">{{ item }}</option>
+            </select>
           </label>
           <label class="field-row">
             <span class="field-name">工作经验：</span>
@@ -169,6 +171,7 @@ const tip = ref('');
 const jobHuntingStatusOptions = ['随时到岗', '月内到岗', '考虑机会', '暂不考虑'];
 const jobTypeOptions = ['不限', '全职', '实习', '兼职'];
 const salaryOptions = ['不限', '3k以下', '3-5k', '5-10k', '10-20k', '20k以上'];
+const graduationCohortOptions = Array.from({ length: 41 }, (_, idx) => `${2000 + idx}届`);
 const degreeOptions = ['不限', '高中', '大专', '本科', '硕士', '博士'];
 const workExperienceOptions = ['不限', '在校生', '应届生', '1年以内', '1-3年', '3-5年', '5-10年', '10年以上'];
 const personalLocationOptions = [
@@ -196,7 +199,7 @@ const form = reactive({
   school: '',
   major: '',
   degree: '',
-  graduationCohort: '',
+  graduationCohort: '2026届',
   workExperience: '',
   location: '其他',
   contactPhone: '',
@@ -278,7 +281,7 @@ async function loadProfile() {
     school: data.profile?.school || '',
     major: data.profile?.major || '',
     degree: data.profile?.degree || '',
-    graduationCohort: data.profile?.graduation_cohort || '',
+    graduationCohort: data.profile?.graduation_cohort || '2026届',
     workExperience: data.profile?.work_experience || '',
     location: data.profile?.location || '其他',
     contactPhone: data.profile?.contact_phone || '',
@@ -378,11 +381,8 @@ onMounted(loadProfile);
   margin-top: 8px;
 }
 
-.file-label {
-  display: grid;
-  gap: 6px;
-  color: #243b63;
-  font-size: 14px;
+.avatar-file-input {
+  width: 100%;
 }
 
 .avatar-preview {

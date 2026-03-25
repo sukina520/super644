@@ -38,7 +38,9 @@
         </el-select>
       </el-form-item>
       <el-form-item label="薪资范围" required>
-        <el-input v-model.trim="jobForm.salaryRange" placeholder="如：12k-18k" />
+        <el-select v-model="jobForm.salaryRange" placeholder="请选择薪资范围">
+          <el-option v-for="item in salaryOptions" :key="item" :label="item" :value="item" />
+        </el-select>
       </el-form-item>
       <el-form-item label="学历要求" required>
         <el-select v-model="jobForm.educationRequirement" placeholder="请选择学历要求">
@@ -99,6 +101,7 @@ import { JOB_CATEGORY_TREE } from '../../constants/jobCategories';
 const tip = ref('');
 const categoryOptions = JOB_CATEGORY_TREE;
 const cityOptions = ['北京', '上海', '广州', '深圳', '杭州', '南京', '苏州', '成都', '重庆', '武汉', '西安'];
+const salaryOptions = ['不限', '3k以下', '3-5k', '5-10k', '10-20k', '20k以上'];
 
 const jobForm = reactive({
   title: '前端开发工程师',
@@ -107,7 +110,7 @@ const jobForm = reactive({
   employmentType: '全职',
   categoryL1: '互联网 / AI',
   categoryL2: '前端开发（Vue / React）',
-  salaryRange: '12k-18k',
+  salaryRange: '5-10k',
   educationRequirement: '本科',
   experienceRequirement: '不限',
   companySize: '100-200人',

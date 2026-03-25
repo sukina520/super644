@@ -53,7 +53,9 @@
           </el-select>
         </el-form-item>
         <el-form-item label="薪资范围" required>
-          <el-input v-model.trim="editForm.salaryRange" placeholder="如：12k-18k" />
+          <el-select v-model="editForm.salaryRange" placeholder="请选择薪资范围">
+            <el-option v-for="item in salaryOptions" :key="item" :label="item" :value="item" />
+          </el-select>
         </el-form-item>
         <el-form-item label="学历要求" required>
           <el-select v-model="editForm.educationRequirement" placeholder="请选择学历要求">
@@ -122,6 +124,7 @@ const jobs = ref([]);
 const tip = ref('');
 const categoryOptions = JOB_CATEGORY_TREE;
 const cityOptions = ['北京', '上海', '广州', '深圳', '杭州', '南京', '苏州', '成都', '重庆', '武汉', '西安'];
+const salaryOptions = ['不限', '3k以下', '3-5k', '5-10k', '10-20k', '20k以上'];
 const editVisible = ref(false);
 const editing = ref(false);
 const editTip = ref('');
@@ -134,7 +137,7 @@ const editForm = reactive({
   employmentType: '不限',
   categoryL1: '',
   categoryL2: '',
-  salaryRange: '',
+  salaryRange: '不限',
   educationRequirement: '不限',
   experienceRequirement: '不限',
   companySize: '不限',
@@ -175,7 +178,7 @@ function patchEditForm(data) {
   editForm.categoryL1 = data?.categoryL1 || JOB_CATEGORY_TREE[0]?.value || '';
   const defaultL2 = JOB_CATEGORY_TREE.find((item) => item.value === editForm.categoryL1)?.children?.[0] || '';
   editForm.categoryL2 = data?.categoryL2 || defaultL2;
-  editForm.salaryRange = data?.salaryRange || '';
+  editForm.salaryRange = data?.salaryRange || '不限';
   editForm.educationRequirement = data?.educationRequirement || '不限';
   editForm.experienceRequirement = data?.experienceRequirement || '不限';
   editForm.companySize = data?.companySize || '不限';
@@ -213,17 +216,14 @@ async function completeEdit() {
   editTip.value = '';
 
   try {
+    await http.delete(`/jobs/${editingJobId.value}`);
+
     await http.post('/jobs', {
       ...editForm,
       tags: String(editForm.tags || '').split(',').map((item) => item.trim()).filter(Boolean)
     });
 
-    try {
-      await http.delete(`/jobs/${editingJobId.value}`);
-      tip.value = '岗位编辑完成：已发布新岗位并删除旧岗位';
-    } catch (error) {
-      tip.value = '新岗位已发布，但旧岗位删除失败，请手动删除';
-    }
+    tip.value = '岗位编辑完成：已删除旧岗位并发布新岗位';
 
     editVisible.value = false;
     editingJobId.value = null;
