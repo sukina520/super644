@@ -12,7 +12,6 @@
       <aside class="workspace-menu">
         <router-link to="/" class="menu-item">主页面</router-link>
         <router-link to="/jobs" class="menu-item active">职位大厅</router-link>
-        <router-link v-if="isRecruiter" to="/recruiter" class="menu-item">招聘工作台</router-link>
         <router-link v-if="isJobseeker" to="/seeker" class="menu-item">求职工作台</router-link>
         <router-link to="/chat" class="menu-item">在线对话</router-link>
         <router-link to="/profile" class="menu-item">个人/公司信息</router-link>
@@ -52,7 +51,6 @@ const authStore = useAuthStore();
 const jobs = ref([]);
 const events = ref([]);
 
-const isRecruiter = computed(() => authStore.activeIdentity === 'recruiter');
 const isJobseeker = computed(() => authStore.activeIdentity === 'jobseeker');
 
 let socket;

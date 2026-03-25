@@ -57,7 +57,7 @@ router.get('/contacts', authenticate, async (req, res) => {
          ON ip.user_id = u.id AND ip.identity = ?
        WHERE u.id != ?
        GROUP BY u.id, u.username, u.nickname, ip.avatar_url
-       ORDER BY last_message_id DESC`,
+       ORDER BY last_message_at DESC, last_message_id DESC`,
       [req.user.id, req.user.id, req.user.id, req.user.activeIdentity, req.user.id]
     );
 
@@ -111,8 +111,20 @@ router.get('/users/:userId', authenticate, async (req, res) => {
 
 router.get('/unread-summary', authenticate, async (req, res) => {
   try {
+    await run(
+      `UPDATE messages
+       SET is_read = 1
+       WHERE to_user_id = ?
+         AND COALESCE(is_read, 0) = 0
+         AND from_user_id NOT IN (SELECT id FROM users)`,
+      [req.user.id]
+    );
+
     const row = await get(
-      'SELECT COUNT(*) AS unreadCount FROM messages WHERE to_user_id = ? AND COALESCE(is_read, 0) = 0',
+      `SELECT COUNT(*) AS unreadCount
+       FROM messages m
+       INNER JOIN users u ON u.id = m.from_user_id
+       WHERE m.to_user_id = ? AND COALESCE(m.is_read, 0) = 0`,
       [req.user.id]
     );
 

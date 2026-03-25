@@ -5,6 +5,15 @@ const { trackBehavior } = require('../services/behaviorService');
 const { emitRecruitmentUpdate } = require('../modules/socketHub');
 
 const router = express.Router();
+const DEFAULT_JOBSEEKER_PHRASE = '你好，我对贵公司的该岗位很感兴趣，想跟您详细聊聊';
+
+function normalizeUnlimited(value) {
+  const text = String(value || '').trim();
+  if (!text || text === '无限制') {
+    return '不限';
+  }
+  return text;
+}
 
 router.get('/', authenticate, async (req, res) => {
   try {
@@ -13,6 +22,10 @@ router.get('/', authenticate, async (req, res) => {
     const categoryL1 = String(req.query.categoryL1 || '').trim();
     const categoryL2 = String(req.query.categoryL2 || '').trim();
     const educationRequirement = String(req.query.educationRequirement || '').trim();
+    const experienceRequirement = String(req.query.experienceRequirement || '').trim();
+    const employmentType = String(req.query.employmentType || '').trim();
+    const city = String(req.query.city || '').trim();
+    const companySize = String(req.query.companySize || '').trim();
 
     await trackBehavior({
       userId: req.user.id,
@@ -23,11 +36,21 @@ router.get('/', authenticate, async (req, res) => {
     });
 
     const rows = await all(
-      `SELECT id, title, company, city, salary_range, education_requirement,
-              category_l1, category_l2,
-              tags, description, publish_at, recruiter_user_id
-       FROM jobs
-       ORDER BY id DESC`
+            `SELECT j.id, j.title, j.company, j.city, j.salary_range,
+              j.employment_type, j.company_size,
+              j.experience_requirement, j.education_requirement,
+              j.category_l1, j.category_l2,
+              j.tags, j.description, j.publish_at, j.recruiter_user_id,
+              COALESCE(c.address, '') AS company_address,
+              COALESCE(c.intro, '') AS company_intro,
+              lm.last_sent_at
+       FROM jobs j
+             LEFT JOIN companies c ON c.user_id = j.recruiter_user_id
+       LEFT JOIN (
+         SELECT from_user_id, MAX(created_at) AS last_sent_at
+         FROM messages
+         GROUP BY from_user_id
+       ) lm ON lm.from_user_id = j.recruiter_user_id`
     );
 
     const jobs = rows.map((row) => ({
@@ -36,7 +59,10 @@ router.get('/', authenticate, async (req, res) => {
       company: row.company,
       city: row.city,
       salaryRange: row.salary_range,
-      educationRequirement: row.education_requirement || '无限制',
+      employmentType: row.employment_type || '不限',
+      companySize: row.company_size || '不限',
+      experienceRequirement: normalizeUnlimited(row.experience_requirement),
+      educationRequirement: normalizeUnlimited(row.education_requirement),
       categoryL1: row.category_l1 || '',
       categoryL2: row.category_l2 || '',
       tags: (() => {
@@ -48,7 +74,10 @@ router.get('/', authenticate, async (req, res) => {
       })(),
       description: row.description,
       publishAt: row.publish_at,
-      recruiterUserId: row.recruiter_user_id
+      recruiterUserId: row.recruiter_user_id,
+      companyAddress: row.company_address || '',
+      companyIntro: row.company_intro || '',
+      recruiterLastActiveAt: row.last_sent_at || ''
     }));
 
     const filtered = jobs.filter((job) => {
@@ -58,7 +87,19 @@ router.get('/', authenticate, async (req, res) => {
       if (categoryL2 && job.categoryL2 !== categoryL2) {
         return false;
       }
-      if (educationRequirement && educationRequirement !== '全部学历' && job.educationRequirement !== educationRequirement) {
+      if (educationRequirement && educationRequirement !== '全部学历' && educationRequirement !== '不限' && job.educationRequirement !== educationRequirement) {
+        return false;
+      }
+      if (experienceRequirement && experienceRequirement !== '不限' && job.experienceRequirement !== experienceRequirement) {
+        return false;
+      }
+      if (employmentType && employmentType !== '不限' && job.employmentType !== employmentType) {
+        return false;
+      }
+      if (city && city !== '不限' && job.city !== city) {
+        return false;
+      }
+      if (companySize && companySize !== '不限' && job.companySize !== companySize) {
         return false;
       }
       if (tag) {
@@ -71,10 +112,24 @@ router.get('/', authenticate, async (req, res) => {
       if (!keyword) {
         return true;
       }
-      const haystack = [job.title, job.company, job.city, job.description, ...(job.tags || [])]
+      const haystack = [job.title, job.company, job.city, job.companyAddress]
         .join(' ')
         .toLowerCase();
       return haystack.includes(keyword);
+    });
+
+    filtered.sort((a, b) => {
+      const aActive = new Date(a.recruiterLastActiveAt || 0).getTime();
+      const bActive = new Date(b.recruiterLastActiveAt || 0).getTime();
+      if (bActive !== aActive) {
+        return bActive - aActive;
+      }
+      const aPublish = new Date(a.publishAt || 0).getTime();
+      const bPublish = new Date(b.publishAt || 0).getTime();
+      if (bPublish !== aPublish) {
+        return bPublish - aPublish;
+      }
+      return b.id - a.id;
     });
 
     res.json(filtered);
@@ -112,13 +167,23 @@ router.get('/:id', authenticate, async (req, res) => {
   try {
     const jobId = Number(req.params.id);
     const row = await get(
-          `SELECT j.id, j.title, j.company, j.city, j.salary_range, j.education_requirement,
+          `SELECT j.id, j.title, j.company, j.city, j.salary_range,
+            j.employment_type, j.company_size,
+            j.experience_requirement, j.education_requirement,
             j.category_l1, j.category_l2,
             j.tags, j.description, j.publish_at,
               j.recruiter_user_id, u.nickname AS recruiter_nickname,
-              COALESCE(ip.avatar_url, '') AS recruiter_avatar
+              COALESCE(c.address, '') AS company_address,
+              COALESCE(c.intro, '') AS company_intro,
+              COALESCE(ip.avatar_url, '') AS recruiter_avatar,
+              (
+                SELECT MAX(m.created_at)
+                FROM messages m
+                WHERE m.from_user_id = j.recruiter_user_id
+              ) AS recruiter_last_active_at
        FROM jobs j
        LEFT JOIN users u ON u.id = j.recruiter_user_id
+       LEFT JOIN companies c ON c.user_id = j.recruiter_user_id
        LEFT JOIN identity_profiles ip ON ip.user_id = j.recruiter_user_id AND ip.identity = 'recruiter'
        WHERE j.id = ?`,
       [jobId]
@@ -134,7 +199,10 @@ router.get('/:id', authenticate, async (req, res) => {
       company: row.company,
       city: row.city,
       salaryRange: row.salary_range,
-      educationRequirement: row.education_requirement || '无限制',
+      employmentType: row.employment_type || '不限',
+      companySize: row.company_size || '不限',
+      experienceRequirement: normalizeUnlimited(row.experience_requirement),
+      educationRequirement: normalizeUnlimited(row.education_requirement),
       categoryL1: row.category_l1 || '',
       categoryL2: row.category_l2 || '',
       tags: (() => {
@@ -148,7 +216,10 @@ router.get('/:id', authenticate, async (req, res) => {
       publishAt: row.publish_at,
       recruiterUserId: row.recruiter_user_id,
       recruiterNickname: row.recruiter_nickname,
-      recruiterAvatar: row.recruiter_avatar || ''
+      companyAddress: row.company_address || '',
+      companyIntro: row.company_intro || '',
+      recruiterAvatar: row.recruiter_avatar || '',
+      recruiterLastActiveAt: row.recruiter_last_active_at || ''
     });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to load job detail', detail: error.message });
@@ -162,11 +233,16 @@ router.post('/', authenticate, requireIdentity(['recruiter']), async (req, res) 
       company,
       city,
       salaryRange,
-      educationRequirement = '无限制',
+      employmentType = '不限',
+      companySize = '不限',
+      experienceRequirement = '不限',
+      educationRequirement = '不限',
       categoryL1 = '互联网 / AI',
       categoryL2 = title,
       tags = [],
-      description
+      description,
+      companyAddress = '',
+      companyIntro = ''
     } = req.body;
     const publishAt = new Date().toISOString().slice(0, 10);
 
@@ -188,15 +264,18 @@ router.post('/', authenticate, requireIdentity(['recruiter']), async (req, res) 
 
     const insert = await run(
       `INSERT INTO jobs (
-        title, company, city, salary_range, education_requirement,
+        title, company, city, salary_range, employment_type, company_size, experience_requirement, education_requirement,
         category_l1, category_l2, tags, description, publish_at, recruiter_user_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
       [
         title,
         company,
         city,
         salaryRange,
-        educationRequirement,
+        employmentType,
+        companySize,
+        normalizeUnlimited(experienceRequirement),
+        normalizeUnlimited(educationRequirement),
         categoryL1,
         categoryL2,
         JSON.stringify(tags),
@@ -212,14 +291,35 @@ router.post('/', authenticate, requireIdentity(['recruiter']), async (req, res) 
       company,
       city,
       salaryRange,
-      educationRequirement,
+      employmentType,
+      companySize,
+      experienceRequirement: normalizeUnlimited(experienceRequirement),
+      educationRequirement: normalizeUnlimited(educationRequirement),
       categoryL1,
       categoryL2,
       tags,
       description,
       publishAt,
-      recruiterUserId: req.user.id
+      recruiterUserId: req.user.id,
+      companyAddress: companyAddress || '',
+      companyIntro: companyIntro || ''
     };
+
+    const existedCompany = await get('SELECT id FROM companies WHERE user_id = ?', [req.user.id]);
+    if (existedCompany) {
+      await run(
+        `UPDATE companies
+         SET name = ?, address = ?, company_size = ?, intro = ?, updated_at = ?
+         WHERE user_id = ?`,
+        [company, companyAddress || '', companySize || '不限', companyIntro || '', new Date().toISOString(), req.user.id]
+      );
+    } else {
+      await run(
+        `INSERT INTO companies (user_id, name, intro, website, address, company_size, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [req.user.id, company, companyIntro || '', '', companyAddress || '', companySize || '不限', new Date().toISOString()]
+      );
+    }
 
     await trackBehavior({
       userId: req.user.id,
@@ -273,7 +373,7 @@ router.post('/:id/apply', authenticate, requireIdentity(['jobseeker']), async (r
       'SELECT common_phrase FROM identity_profiles WHERE user_id = ? AND identity = ?',
       [req.user.id, 'jobseeker']
     );
-    const commonPhrase = commonPhraseRow?.common_phrase || '';
+    const commonPhrase = String(commonPhraseRow?.common_phrase || '').trim() || DEFAULT_JOBSEEKER_PHRASE;
 
     const snapshotProfile = {
       userId: req.user.id,
@@ -319,7 +419,7 @@ router.post('/:id/apply', authenticate, requireIdentity(['jobseeker']), async (r
       [
         req.user.id,
         targetJob.recruiter_user_id,
-        `${req.user.username} 向你投递了岗位`,
+        '',
         'application_card',
         JSON.stringify(cardPayload),
         new Date().toISOString()

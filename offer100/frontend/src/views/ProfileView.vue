@@ -35,6 +35,39 @@
               <option v-for="item in jobHuntingStatusOptions" :key="item" :value="item">{{ item }}</option>
             </select>
           </label>
+          <label>
+            求职类型
+            <select v-model="form.expectedJobType">
+              <option v-for="item in jobTypeOptions" :key="item" :value="item">{{ item }}</option>
+            </select>
+          </label>
+          <label>
+            期望薪资
+            <select v-model="form.expectedSalary">
+              <option v-for="item in salaryOptions" :key="item" :value="item">{{ item }}</option>
+            </select>
+          </label>
+          <input v-model.trim="form.school" placeholder="学校" />
+          <input v-model.trim="form.major" placeholder="专业" />
+          <label>
+            学历
+            <select v-model="form.degree">
+              <option v-for="item in degreeOptions" :key="item" :value="item">{{ item }}</option>
+            </select>
+          </label>
+          <input v-model.trim="form.graduationCohort" placeholder="毕业届别（如：2026届）" />
+          <label>
+            工作经验
+            <select v-model="form.workExperience">
+              <option v-for="item in workExperienceOptions" :key="item" :value="item">{{ item }}</option>
+            </select>
+          </label>
+          <label>
+            个人所在地
+            <select v-model="form.location">
+              <option v-for="item in personalLocationOptions" :key="item" :value="item">{{ item }}</option>
+            </select>
+          </label>
           <input v-model.trim="form.strengths" placeholder="个人优势" />
           <input v-model.trim="form.expectedPosition" placeholder="期望岗位" />
           <textarea v-model.trim="form.internshipExperience" placeholder="实习经历" />
@@ -45,8 +78,18 @@
 
         <template v-else>
           <input v-model.trim="form.companyName" placeholder="公司名称" />
-          <input v-model.trim="form.companyAddress" placeholder="公司地址" />
-          <input v-model.trim="form.companySize" placeholder="公司规模" />
+          <label>
+            公司位置
+            <select v-model="form.companyAddress">
+              <option v-for="item in cityOptions" :key="item" :value="item">{{ item }}</option>
+            </select>
+          </label>
+          <label>
+            公司规模
+            <select v-model="form.companySize">
+              <option v-for="item in companySizeOptions" :key="item" :value="item">{{ item }}</option>
+            </select>
+          </label>
           <textarea v-model.trim="form.companyIntro" placeholder="公司介绍" />
         </template>
 
@@ -71,18 +114,39 @@ const router = useRouter();
 const authStore = useAuthStore();
 const tip = ref('');
 const jobHuntingStatusOptions = ['随时到岗', '月内到岗', '考虑机会', '暂不考虑'];
+const jobTypeOptions = ['不限', '全职', '实习', '兼职'];
+const salaryOptions = ['不限', '3k以下', '3-5k', '5-10k', '10-20k', '20k以上'];
+const degreeOptions = ['不限', '高中', '大专', '本科', '硕士', '博士'];
+const workExperienceOptions = ['不限', '在校生', '应届生', '1年以内', '1-3年', '3-5年', '5-10年', '10年以上'];
+const personalLocationOptions = [
+  '其他', '北京市', '天津市', '上海市', '重庆市', '河北省', '山西省', '辽宁省', '吉林省', '黑龙江省',
+  '江苏省', '浙江省', '安徽省', '福建省', '江西省', '山东省', '河南省', '湖北省', '湖南省', '广东省',
+  '海南省', '四川省', '贵州省', '云南省', '陕西省', '甘肃省', '青海省', '内蒙古自治区', '广西壮族自治区',
+  '西藏自治区', '宁夏回族自治区', '新疆维吾尔自治区', '香港特别行政区', '澳门特别行政区',
+  '广州市', '深圳市', '杭州市', '南京市', '苏州市', '成都市', '武汉市', '西安市'
+];
+const cityOptions = ['其他', '北京', '上海', '广州', '深圳', '杭州', '南京', '苏州', '成都', '重庆', '武汉', '西安'];
+const companySizeOptions = ['不限', '0-20人', '20-100人', '100-200人', '200-500人', '500-1000人', '1000人以上'];
 
 const form = reactive({
   nickname: '',
   avatarUrl: '',
   commonPhrase: '',
   companyName: '',
-  companyAddress: '',
-  companySize: '',
+  companyAddress: '上海',
+  companySize: '不限',
   companyIntro: '',
   fullName: '',
   age: null,
   gender: '男',
+  expectedSalary: '',
+  school: '',
+  major: '',
+  degree: '',
+  graduationCohort: '',
+  workExperience: '',
+  location: '其他',
+  expectedJobType: '不限',
   strengths: '',
   jobHuntingStatus: '考虑机会',
   expectedPosition: '',
@@ -127,6 +191,14 @@ async function loadProfile() {
     fullName: data.profile?.full_name || '',
     age: data.profile?.age || null,
     gender: data.profile?.gender || '男',
+    expectedSalary: data.profile?.expected_salary || '',
+    school: data.profile?.school || '',
+    major: data.profile?.major || '',
+    degree: data.profile?.degree || '',
+    graduationCohort: data.profile?.graduation_cohort || '',
+    workExperience: data.profile?.work_experience || '',
+    location: data.profile?.location || '其他',
+    expectedJobType: data.profile?.expected_job_type || '不限',
     strengths: data.profile?.strengths || '',
     jobHuntingStatus: data.profile?.job_hunting_status || '考虑机会',
     expectedPosition: data.profile?.expected_position || '',

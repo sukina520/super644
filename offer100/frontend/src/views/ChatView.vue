@@ -17,12 +17,12 @@
             v-for="u in contacts"
             :key="u.id"
             class="chat-user"
-            :type="u.id === activeContactId ? 'primary' : 'default'"
+            :class="{ active: u.id === activeContactId }"
+            type="default"
             plain
             @click="selectContact(u.id)"
           >
-            <el-avatar v-if="u.avatarUrl" :src="u.avatarUrl" :size="26" />
-            <el-avatar v-else :size="26">{{ (u.nickname || u.username || '?').slice(0, 1) }}</el-avatar>
+            <el-avatar :src="u.avatarUrl || DEFAULT_AVATAR" :size="26" />
             <span>{{ u.nickname || u.username }}</span>
             <el-badge
               v-if="u.unreadCount > 0"
@@ -42,25 +42,40 @@
           />
           <div v-else class="chat-list">
             <el-empty v-if="messages.length === 0" description="暂无消息，开始沟通吧" :image-size="80" />
-            <el-card v-for="msg in messages" :key="msg.id" class="chat-msg" shadow="never">
-              <strong>{{ msg.from_user_id === authStore.user?.id ? '我' : '对方' }}:</strong>
-              <template v-if="msg.message_type === 'application_card' || msg.message_type === 'invitation_card'">
-                <p>{{ msg.content }}</p>
-                <button class="card-msg" v-if="safePayload(msg)" @click="openCardDetail(safePayload(msg), msg.message_type)">
-                  <p><strong>{{ safePayload(msg).title }}</strong></p>
-                  <p v-if="safePayload(msg).job">
-                    岗位：{{ safePayload(msg).job.title }} | {{ safePayload(msg).job.company }} | {{ safePayload(msg).job.city }}
-                  </p>
-                  <p v-if="safePayload(msg).seeker">
-                    求职者：{{ safePayload(msg).seeker.fullName }}，优势：{{ safePayload(msg).seeker.strengths }}
-                  </p>
-                  <p class="card-tip">点击查看详情</p>
-                </button>
-              </template>
-              <template v-else>
-                {{ msg.content }}
-              </template>
-            </el-card>
+            <div
+              v-for="msg in messages"
+              :key="msg.id"
+              class="chat-msg"
+              :class="{ mine: msg.from_user_id === authStore.user?.id }"
+            >
+              <el-avatar class="msg-avatar" :src="messageAvatar(msg)" :size="28" />
+              <div class="msg-content">
+                <div class="msg-name" :class="{ mine: msg.from_user_id === authStore.user?.id }">
+                  {{ msg.from_user_id === authStore.user?.id ? '我' : activeContactName }}
+                </div>
+                <div class="msg-bubble">
+                  <template v-if="msg.message_type === 'application_card' || msg.message_type === 'invitation_card'">
+                    <p v-if="msg.content">{{ msg.content }}</p>
+                    <button class="card-msg" v-if="safePayload(msg)" @click="openCardDetail(safePayload(msg), msg.message_type)">
+                      <p><strong>{{ safePayload(msg).title }}</strong></p>
+                      <p v-if="safePayload(msg).job">
+                        岗位：{{ safePayload(msg).job.title }} | {{ safePayload(msg).job.company }} | {{ safePayload(msg).job.city }}
+                      </p>
+                      <p v-if="safePayload(msg).seeker">
+                        求职者：{{ safePayload(msg).seeker.fullName }}，优势：{{ safePayload(msg).seeker.strengths }}
+                      </p>
+                      <p class="card-tip">点击查看详情</p>
+                    </button>
+                  </template>
+                  <template v-else>
+                    {{ msg.content }}
+                  </template>
+                </div>
+                <div class="msg-time" :class="{ mine: msg.from_user_id === authStore.user?.id }">
+                  {{ formatMessageTime(msg.created_at) }}
+                </div>
+              </div>
+            </div>
           </div>
 
           <el-form v-if="activeContactId" class="chat-form" @submit.prevent>
@@ -79,7 +94,7 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { io } from 'socket.io-client';
 import http from '../api/http';
@@ -94,6 +109,7 @@ const contacts = ref([]);
 const messages = ref([]);
 const activeContactId = ref(0);
 const messageText = ref('');
+const DEFAULT_AVATAR = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="40" fill="%23dbeafe"/><circle cx="40" cy="30" r="14" fill="%2393c5fd"/><path d="M16 66c4-12 14-18 24-18s20 6 24 18" fill="%2393c5fd"/></svg>';
 
 let socket;
 
@@ -150,15 +166,18 @@ async function sendMessage() {
       content: text
     });
     await loadMessages();
+    await loadContacts();
   } catch (error) {
     messageText.value = text;
   }
 }
 
 async function selectContact(userId) {
+  if (String(route.query.with || '') !== String(userId)) {
+    await router.replace({ path: '/chat', query: { with: String(userId) } });
+  }
   activeContactId.value = userId;
   await loadMessages();
-  await loadContacts();
 }
 
 async function switchIdentity(identity) {
@@ -176,6 +195,22 @@ function safePayload(message) {
   }
 }
 
+function activeContact() {
+  return contacts.value.find((item) => item.id === activeContactId.value) || null;
+}
+
+function messageAvatar(message) {
+  if (message.from_user_id === authStore.user?.id) {
+    return DEFAULT_AVATAR;
+  }
+  return activeContact()?.avatarUrl || DEFAULT_AVATAR;
+}
+
+const activeContactName = computed(() => {
+  const target = activeContact();
+  return target?.nickname || target?.username || '对方';
+});
+
 function openCardDetail(payload, messageType) {
   if (!payload) {
     return;
@@ -189,6 +224,22 @@ function openCardDetail(payload, messageType) {
   if (payload.job?.id) {
     router.push(`/jobs/${payload.job.id}`);
   }
+}
+
+function formatMessageTime(value) {
+  if (!value) {
+    return '';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  return `${y}/${m}/${d} ${hh}:${mm}`;
 }
 
 function logout() {
@@ -258,9 +309,9 @@ onUnmounted(() => {
   border: 1px solid #e5ebf5;
   border-radius: 10px;
   padding: 10px;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  align-content: start;
 }
 
 .chat-user {
@@ -269,6 +320,17 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.chat-users :deep(.el-button + .el-button) {
+  margin-left: 0 !important;
+}
+
+.chat-user.active {
+  border-color: #7fb2ff;
+  background: #edf5ff;
 }
 
 .contact-badge {
@@ -288,34 +350,91 @@ onUnmounted(() => {
   min-height: 200px;
   max-height: 420px;
   overflow: auto;
-  display: grid;
-  gap: 8px;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 2px;
 }
 
 .chat-msg {
-  border: 1px solid #e9effc;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 }
 
-.chat-msg strong {
-  color: #1d4c95;
-  margin-right: 4px;
+.chat-msg.mine {
+  flex-direction: row-reverse;
+}
+
+.msg-avatar {
+  flex-shrink: 0;
+}
+
+.msg-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.msg-bubble {
+  max-width: min(100%, 680px);
+  padding: 8px 10px;
+  border: 1px solid #e9effc;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1f2937;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-msg.mine .msg-bubble {
+  background: #edf5ff;
+  border-color: #bfd5ff;
+}
+
+.msg-name {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.2;
+  padding: 0 2px;
+}
+
+.msg-name.mine {
+  text-align: right;
+}
+
+.msg-time {
+  margin-top: 2px;
+  color: #9ca3af;
+  font-size: 11px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.msg-time.mine {
+  text-align: right;
 }
 
 .card-msg {
+  appearance: none;
   width: 100%;
   margin-top: 6px;
   padding: 8px;
   border-radius: 8px;
-  background: #ebf4ff;
-  border: 1px solid #bfd5ff;
+  background: #edfdf3;
+  border: 1px solid #b8e8c8;
   text-align: left;
   cursor: pointer;
+  color: #166534;
+  line-height: 1.5;
+  word-break: break-word;
+  overflow: hidden;
 }
 
 .card-tip {
   margin: 6px 0 0;
-  color: #1d4c95;
+  color: #15803d;
   font-size: 12px;
 }
 

@@ -5,7 +5,6 @@ import HomeView from '../views/HomeView.vue';
 import HomeOverviewView from '../views/home/HomeOverviewView.vue';
 import HomePublishJobView from '../views/home/HomePublishJobView.vue';
 import JobDetailView from '../views/JobDetailView.vue';
-import RecruiterDashboard from '../views/RecruiterDashboard.vue';
 import SeekerDashboard from '../views/SeekerDashboard.vue';
 import SeekerDetailView from '../views/SeekerDetailView.vue';
 import ChatView from '../views/ChatView.vue';
@@ -46,12 +45,6 @@ const routes = [
     name: 'job-detail',
     component: JobDetailView,
     meta: { requiresAuth: true }
-  },
-  {
-    path: '/recruiter',
-    name: 'recruiter',
-    component: RecruiterDashboard,
-    meta: { requiresAuth: true, identity: 'recruiter' }
   },
   {
     path: '/seeker',

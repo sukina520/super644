@@ -3,6 +3,8 @@ const sqlite3 = require('sqlite3').verbose();
 
 const dbPath = path.join(__dirname, '../../offer100.sqlite');
 const db = new sqlite3.Database(dbPath);
+const DEFAULT_COMMON_PHRASE_JOBSEEKER = '你好，我对贵公司的该岗位很感兴趣，想跟您详细聊聊';
+const DEFAULT_COMMON_PHRASE_RECRUITER = '你好，我发现你的简历十分合适这份岗位，有兴趣聊聊吗';
 
 function run(sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -138,7 +140,10 @@ async function seedJobs() {
       company: '校园科技',
       city: '上海',
       salaryRange: '12k-18k',
+      employmentType: '全职',
+      companySize: '100-200人',
       educationRequirement: '本科',
+      experienceRequirement: '1-3年',
       categoryL1: '互联网 / AI',
       categoryL2: '前端开发（Vue / React）',
       tags: ['vue', 'javascript', 'frontend'],
@@ -150,7 +155,10 @@ async function seedJobs() {
       company: '云川科技',
       city: '杭州',
       salaryRange: '15k-22k',
-      educationRequirement: '双一流',
+      employmentType: '全职',
+      companySize: '200-500人',
+      educationRequirement: '本科',
+      experienceRequirement: '3-5年',
       categoryL1: '互联网 / AI',
       categoryL2: '后端开发（Java / Go / Python）',
       tags: ['nodejs', 'express', 'api'],
@@ -162,7 +170,10 @@ async function seedJobs() {
       company: '增长实验室',
       city: '深圳',
       salaryRange: '9k-14k',
+      employmentType: '全职',
+      companySize: '20-100人',
       educationRequirement: '无限制',
+      experienceRequirement: '1年以内',
       categoryL1: '产品',
       categoryL2: '增长产品经理',
       tags: ['operations', 'analysis'],
@@ -174,14 +185,17 @@ async function seedJobs() {
   for (const job of jobs) {
     await run(
       `INSERT INTO jobs (
-        title, company, city, salary_range, education_requirement,
+        title, company, city, salary_range, employment_type, company_size, experience_requirement, education_requirement,
         category_l1, category_l2, tags, description, publish_at, recruiter_user_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         job.title,
         job.company,
         job.city,
         job.salaryRange,
+        job.employmentType,
+        job.companySize,
+        job.experienceRequirement,
         job.educationRequirement,
         job.categoryL1,
         job.categoryL2,
@@ -331,7 +345,13 @@ async function backfillIdentityProfiles() {
       if (!existed) {
         await run(
           'INSERT INTO identity_profiles (user_id, identity, avatar_url, common_phrase, updated_at) VALUES (?, ?, ?, ?, ?)',
-          [user.id, identity, '', '', now]
+          [
+            user.id,
+            identity,
+            '',
+            identity === 'recruiter' ? DEFAULT_COMMON_PHRASE_RECRUITER : DEFAULT_COMMON_PHRASE_JOBSEEKER,
+            now
+          ]
         );
       }
     }
@@ -361,6 +381,9 @@ async function initDb() {
       company TEXT NOT NULL,
       city TEXT NOT NULL,
       salary_range TEXT NOT NULL,
+      employment_type TEXT,
+      company_size TEXT,
+      experience_requirement TEXT,
       education_requirement TEXT,
       category_l1 TEXT,
       category_l2 TEXT,
@@ -405,10 +428,18 @@ async function initDb() {
       skills TEXT,
       experience TEXT,
       education TEXT,
+      expected_salary TEXT,
+      school TEXT,
+      major TEXT,
+      degree TEXT,
+      graduation_cohort TEXT,
+      work_experience TEXT,
+      location TEXT,
       gender TEXT,
       age INTEGER,
       strengths TEXT,
       job_hunting_status TEXT,
+      expected_job_type TEXT,
       expected_position TEXT,
       internship_experience TEXT,
       project_experience TEXT,
@@ -471,7 +502,15 @@ async function initDb() {
       age INTEGER,
       gender TEXT,
       strengths TEXT,
+      expected_salary TEXT,
+      school TEXT,
+      major TEXT,
+      degree TEXT,
+      graduation_cohort TEXT,
+      work_experience TEXT,
+      location TEXT,
       job_hunting_status TEXT,
+      expected_job_type TEXT,
       expected_position TEXT,
       internship_experience TEXT,
       project_experience TEXT,
@@ -493,7 +532,15 @@ async function initDb() {
   await ensureColumn('resumes', 'gender', 'TEXT');
   await ensureColumn('resumes', 'age', 'INTEGER');
   await ensureColumn('resumes', 'strengths', 'TEXT');
+  await ensureColumn('resumes', 'expected_salary', 'TEXT');
+  await ensureColumn('resumes', 'school', 'TEXT');
+  await ensureColumn('resumes', 'major', 'TEXT');
+  await ensureColumn('resumes', 'degree', 'TEXT');
+  await ensureColumn('resumes', 'graduation_cohort', 'TEXT');
+  await ensureColumn('resumes', 'work_experience', 'TEXT');
+  await ensureColumn('resumes', 'location', 'TEXT');
   await ensureColumn('resumes', 'job_hunting_status', 'TEXT');
+  await ensureColumn('resumes', 'expected_job_type', 'TEXT');
   await ensureColumn('resumes', 'expected_position', 'TEXT');
   await ensureColumn('resumes', 'internship_experience', 'TEXT');
   await ensureColumn('resumes', 'project_experience', 'TEXT');
@@ -501,6 +548,9 @@ async function initDb() {
   await ensureColumn('resumes', 'campus_experience', 'TEXT');
 
   await ensureColumn('jobs', 'recruiter_user_id', 'INTEGER');
+  await ensureColumn('jobs', 'employment_type', 'TEXT');
+  await ensureColumn('jobs', 'company_size', 'TEXT');
+  await ensureColumn('jobs', 'experience_requirement', 'TEXT');
   await ensureColumn('jobs', 'education_requirement', 'TEXT');
   await ensureColumn('jobs', 'category_l1', 'TEXT');
   await ensureColumn('jobs', 'category_l2', 'TEXT');
@@ -510,13 +560,51 @@ async function initDb() {
   await ensureColumn('messages', 'message_type', "TEXT DEFAULT 'text'");
   await ensureColumn('messages', 'payload_json', 'TEXT');
   await ensureColumn('messages', 'is_read', 'INTEGER DEFAULT 0');
+  await ensureColumn('identity_profiles', 'expected_salary', 'TEXT');
+  await ensureColumn('identity_profiles', 'school', 'TEXT');
+  await ensureColumn('identity_profiles', 'major', 'TEXT');
+  await ensureColumn('identity_profiles', 'degree', 'TEXT');
+  await ensureColumn('identity_profiles', 'graduation_cohort', 'TEXT');
+  await ensureColumn('identity_profiles', 'work_experience', 'TEXT');
+  await ensureColumn('identity_profiles', 'location', 'TEXT');
   await ensureColumn('identity_profiles', 'job_hunting_status', 'TEXT');
+  await ensureColumn('identity_profiles', 'expected_job_type', 'TEXT');
 
   await run(
+     `UPDATE jobs
+      SET employment_type = COALESCE(employment_type, '不限')
+      WHERE employment_type IS NULL OR employment_type = ''`
+    );
+
+    await run(
     `UPDATE jobs
-     SET education_requirement = COALESCE(education_requirement, '无限制')
+     SET company_size = COALESCE(company_size, '不限')
+     WHERE company_size IS NULL OR company_size = ''`
+  );
+
+  await run(
+     `UPDATE jobs
+      SET experience_requirement = COALESCE(experience_requirement, '不限')
+      WHERE experience_requirement IS NULL OR experience_requirement = ''`
+    );
+
+    await run(
+    `UPDATE jobs
+      SET education_requirement = COALESCE(education_requirement, '不限')
      WHERE education_requirement IS NULL OR education_requirement = ''`
   );
+
+    await run(
+     `UPDATE jobs
+      SET experience_requirement = '不限'
+      WHERE experience_requirement = '无限制'`
+    );
+
+    await run(
+     `UPDATE jobs
+      SET education_requirement = '不限'
+      WHERE education_requirement = '无限制'`
+    );
 
   await run(
     `UPDATE jobs
@@ -568,9 +656,47 @@ async function initDb() {
   );
 
   await run(
+    `UPDATE resumes
+     SET expected_job_type = COALESCE(expected_job_type, '不限')
+     WHERE expected_job_type IS NULL OR expected_job_type = ''`
+  );
+
+  await run(
+    `UPDATE resumes
+     SET location = COALESCE(location, '其他')
+     WHERE location IS NULL OR location = ''`
+  );
+
+  await run(
     `UPDATE identity_profiles
      SET job_hunting_status = COALESCE(job_hunting_status, '考虑机会')
      WHERE identity = 'jobseeker' AND (job_hunting_status IS NULL OR job_hunting_status = '')`
+  );
+
+  await run(
+    `UPDATE identity_profiles
+     SET expected_job_type = COALESCE(expected_job_type, '不限')
+     WHERE identity = 'jobseeker' AND (expected_job_type IS NULL OR expected_job_type = '')`
+  );
+
+  await run(
+    `UPDATE identity_profiles
+     SET location = COALESCE(location, '其他')
+     WHERE identity = 'jobseeker' AND (location IS NULL OR location = '')`
+  );
+
+  await run(
+    `UPDATE identity_profiles
+     SET common_phrase = ?
+     WHERE identity = 'jobseeker' AND (common_phrase IS NULL OR TRIM(common_phrase) = '')`,
+    [DEFAULT_COMMON_PHRASE_JOBSEEKER]
+  );
+
+  await run(
+    `UPDATE identity_profiles
+     SET common_phrase = ?
+     WHERE identity = 'recruiter' AND (common_phrase IS NULL OR TRIM(common_phrase) = '')`,
+    [DEFAULT_COMMON_PHRASE_RECRUITER]
   );
 
   await seedUsers();

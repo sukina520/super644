@@ -11,7 +11,17 @@
         <el-input v-model.trim="jobForm.company" placeholder="如：CampusTech" />
       </el-form-item>
       <el-form-item label="工作城市" required>
-        <el-input v-model.trim="jobForm.city" placeholder="如：上海" />
+        <el-select v-model="jobForm.city" filterable allow-create default-first-option placeholder="请选择或输入城市">
+          <el-option v-for="item in cityOptions" :key="item" :label="item" :value="item" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="求职类型" required>
+        <el-select v-model="jobForm.employmentType" placeholder="请选择求职类型">
+          <el-option label="不限" value="不限" />
+          <el-option label="全职" value="全职" />
+          <el-option label="实习" value="实习" />
+          <el-option label="兼职" value="兼职" />
+        </el-select>
       </el-form-item>
       <el-form-item label="外层分类" required>
         <el-select v-model="jobForm.categoryL1" placeholder="请选择岗位大类" @change="onCategoryL1Change">
@@ -28,13 +38,42 @@
       </el-form-item>
       <el-form-item label="学历要求" required>
         <el-select v-model="jobForm.educationRequirement" placeholder="请选择学历要求">
-          <el-option label="博士生" value="博士生" />
-          <el-option label="研究生" value="研究生" />
-          <el-option label="本科985" value="本科985" />
-          <el-option label="本科211" value="本科211" />
-          <el-option label="专科" value="专科" />
-          <el-option label="无限制" value="无限制" />
+          <el-option label="不限" value="不限" />
+          <el-option label="高中" value="高中" />
+          <el-option label="大专" value="大专" />
+          <el-option label="本科" value="本科" />
+          <el-option label="硕士" value="硕士" />
+          <el-option label="博士" value="博士" />
         </el-select>
+      </el-form-item>
+      <el-form-item label="需求经验" required>
+        <el-select v-model="jobForm.experienceRequirement" placeholder="请选择经验要求">
+          <el-option label="不限" value="不限" />
+          <el-option label="在校生" value="在校生" />
+          <el-option label="应届生" value="应届生" />
+          <el-option label="1年以内" value="1年以内" />
+          <el-option label="1-3年" value="1-3年" />
+          <el-option label="3-5年" value="3-5年" />
+          <el-option label="5-10年" value="5-10年" />
+          <el-option label="10年以上" value="10年以上" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="公司规模" required>
+        <el-select v-model="jobForm.companySize" placeholder="请选择公司规模">
+          <el-option label="不限" value="不限" />
+          <el-option label="0-20人" value="0-20人" />
+          <el-option label="20-100人" value="20-100人" />
+          <el-option label="100-200人" value="100-200人" />
+          <el-option label="200-500人" value="200-500人" />
+          <el-option label="500-1000人" value="500-1000人" />
+          <el-option label="1000人以上" value="1000人以上" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="公司地址">
+        <el-input v-model.trim="jobForm.companyAddress" placeholder="如：上海浦东新区" />
+      </el-form-item>
+      <el-form-item label="公司介绍">
+        <el-input v-model.trim="jobForm.companyIntro" type="textarea" :rows="3" placeholder="用于求职者快速了解公司" />
       </el-form-item>
       <el-form-item label="岗位描述" required>
         <el-input v-model.trim="jobForm.description" type="textarea" :rows="4" placeholder="描述岗位职责与要求" />
@@ -55,15 +94,21 @@ import { JOB_CATEGORY_TREE } from '../../constants/jobCategories';
 
 const tip = ref('');
 const categoryOptions = JOB_CATEGORY_TREE;
+const cityOptions = ['北京', '上海', '广州', '深圳', '杭州', '南京', '苏州', '成都', '重庆', '武汉', '西安'];
 
 const jobForm = reactive({
   title: '前端开发工程师',
   company: 'CampusTech',
   city: '上海',
+  employmentType: '全职',
   categoryL1: '互联网 / AI',
   categoryL2: '前端开发（Vue / React）',
   salaryRange: '12k-18k',
-  educationRequirement: '本科211',
+  educationRequirement: '本科',
+  experienceRequirement: '不限',
+  companySize: '100-200人',
+  companyAddress: '上海浦东新区',
+  companyIntro: '专注校园招聘数字化平台与企业人才服务。',
   tags: 'vue,javascript,frontend',
   description: '负责企业级 Web 前端开发。'
 });

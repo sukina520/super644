@@ -7,7 +7,6 @@ const authRoutes = require('./routes/authRoutes');
 const jobRoutes = require('./routes/jobRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const reportRoutes = require('./routes/reportRoutes');
-const companyRoutes = require('./routes/companyRoutes');
 const resumeRoutes = require('./routes/resumeRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const identityRoutes = require('./routes/identityRoutes');
@@ -35,7 +34,6 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/identity', identityRoutes);
 app.use('/api/jobs', jobRoutes);
-app.use('/api/company', companyRoutes);
 app.use('/api/resume', resumeRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/profile', profileRoutes);

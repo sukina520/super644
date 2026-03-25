@@ -6,6 +6,8 @@ const { emitRecruitmentUpdate } = require('../modules/socketHub');
 
 const router = express.Router();
 const JOB_HUNTING_STATUS = ['随时到岗', '月内到岗', '考虑机会', '暂不考虑'];
+const DEFAULT_RECRUITER_PHRASE = '你好，我发现你的简历十分合适这份岗位，有兴趣聊聊吗';
+const JOB_TYPE_OPTIONS = ['不限', '全职', '实习', '兼职'];
 
 function parseJsonArray(raw) {
   try {
@@ -14,6 +16,63 @@ function parseJsonArray(raw) {
   } catch (error) {
     return [];
   }
+}
+
+function parseSalaryKRange(text) {
+  const raw = String(text || '').toLowerCase().replace(/\s+/g, '');
+  if (!raw) {
+    return { min: null, max: null };
+  }
+
+  const nums = Array.from(raw.matchAll(/\d+(?:\.\d+)?/g)).map((item) => Number(item[0]));
+  if (nums.length === 0) {
+    return { min: null, max: null };
+  }
+
+  const hasW = raw.includes('w');
+  const hasK = raw.includes('k');
+  const factor = hasW ? 10 : hasK ? 1 : 1;
+  const normalized = nums.map((n) => n * factor);
+  if (normalized.length === 1) {
+    return { min: normalized[0], max: normalized[0] };
+  }
+
+  return {
+    min: Math.min(...normalized),
+    max: Math.max(...normalized)
+  };
+}
+
+function matchSalaryBand(salaryRange, band) {
+  if (!band || band === '不限') {
+    return true;
+  }
+
+  const { min, max } = parseSalaryKRange(salaryRange);
+  if (min === null && max === null) {
+    return false;
+  }
+
+  const lower = min ?? max;
+  const upper = max ?? min;
+
+  if (band === '3k以下') {
+    return lower < 3;
+  }
+  if (band === '3-5k') {
+    return upper >= 3 && lower <= 5;
+  }
+  if (band === '5-10k') {
+    return upper >= 5 && lower <= 10;
+  }
+  if (band === '10-20k') {
+    return upper >= 10 && lower <= 20;
+  }
+  if (band === '20k以上') {
+    return upper > 20 || lower >= 20;
+  }
+
+  return true;
 }
 
 function mapResumeRow(row) {
@@ -26,8 +85,16 @@ function mapResumeRow(row) {
     education: row.education,
     age: row.age,
     gender: row.gender,
+    expectedSalary: row.expected_salary || '',
+    school: row.school || '',
+    major: row.major || '',
+    degree: row.degree || row.education || '',
+    graduationCohort: row.graduation_cohort || '',
+    workExperience: row.work_experience || row.experience || '',
+    location: row.location || '其他',
     strengths: row.strengths,
     jobHuntingStatus: row.job_hunting_status || '考虑机会',
+    expectedJobType: row.expected_job_type || '不限',
     expectedPosition: row.expected_position,
     internshipExperience: row.internship_experience,
     projectExperience: row.project_experience,
@@ -43,7 +110,8 @@ router.get('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
   try {
     const resume = await get(
       `SELECT r.id, r.full_name, r.skills, r.experience, r.education, r.updated_at,
-              r.age, r.gender, r.strengths, r.job_hunting_status, r.expected_position,
+              r.expected_salary, r.school, r.major, r.degree, r.graduation_cohort, r.work_experience, r.location,
+              r.age, r.gender, r.strengths, r.job_hunting_status, r.expected_job_type, r.expected_position,
               r.internship_experience, r.project_experience,
               r.competition_experience, r.campus_experience,
               COALESCE(ip.avatar_url, '') AS avatar_url,
@@ -61,10 +129,18 @@ router.get('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
         skills: '',
         experience: '',
         education: '',
+        expected_salary: '',
+        school: '',
+        major: '',
+        degree: '',
+        graduation_cohort: '',
+        work_experience: '',
+        location: '其他',
         age: null,
         gender: '',
         strengths: '',
         job_hunting_status: '考虑机会',
+        expected_job_type: '不限',
         expected_position: '',
         internship_experience: '',
         project_experience: '',
@@ -89,10 +165,18 @@ router.put('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
       skills,
       experience,
       education,
+      expectedSalary,
+      school,
+      major,
+      degree,
+      graduationCohort,
+      workExperience,
+      location,
       age,
       gender,
       strengths,
       jobHuntingStatus,
+      expectedJobType,
       expectedPosition,
       internshipExperience,
       projectExperience,
@@ -106,13 +190,17 @@ router.put('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
     if (jobHuntingStatus && !JOB_HUNTING_STATUS.includes(jobHuntingStatus)) {
       return res.status(400).json({ message: '求职状态不合法' });
     }
+    if (expectedJobType && !JOB_TYPE_OPTIONS.includes(expectedJobType)) {
+      return res.status(400).json({ message: '求职类型不合法' });
+    }
     const existed = await get('SELECT id FROM resumes WHERE user_id = ?', [req.user.id]);
 
     if (existed) {
       await run(
         `UPDATE resumes
          SET full_name = ?, skills = ?, experience = ?, education = ?,
-             age = ?, gender = ?, strengths = ?, job_hunting_status = ?, expected_position = ?,
+           expected_salary = ?, school = ?, major = ?, degree = ?, graduation_cohort = ?, work_experience = ?, location = ?,
+             age = ?, gender = ?, strengths = ?, job_hunting_status = ?, expected_job_type = ?, expected_position = ?,
              internship_experience = ?, project_experience = ?,
              competition_experience = ?, campus_experience = ?, updated_at = ?
          WHERE user_id = ?`,
@@ -121,10 +209,18 @@ router.put('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
           skills,
           experience,
           education,
+          expectedSalary || '',
+          school || '',
+          major || '',
+          degree || '',
+          graduationCohort || '',
+          workExperience || '',
+          location || '其他',
           age ? Number(age) : null,
           gender,
           strengths,
           jobHuntingStatus || '考虑机会',
+          expectedJobType || '不限',
           expectedPosition,
           internshipExperience,
           projectExperience,
@@ -137,20 +233,29 @@ router.put('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
     } else {
       await run(
         `INSERT INTO resumes (
-          user_id, full_name, skills, experience, education, age, gender, strengths, job_hunting_status,
+          user_id, full_name, skills, experience, education, expected_salary, school, major, degree, graduation_cohort, work_experience, location,
+          age, gender, strengths, job_hunting_status, expected_job_type,
           expected_position, internship_experience, project_experience,
           competition_experience, campus_experience, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
         [
           req.user.id,
           fullName,
           skills,
           experience,
           education,
+          expectedSalary || '',
+          school || '',
+          major || '',
+          degree || '',
+          graduationCohort || '',
+          workExperience || '',
+          location || '其他',
           age ? Number(age) : null,
           gender,
           strengths,
           jobHuntingStatus || '考虑机会',
+          expectedJobType || '不限',
           expectedPosition,
           internshipExperience,
           projectExperience,
@@ -169,7 +274,8 @@ router.put('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
     if (identityExisted) {
       await run(
         `UPDATE identity_profiles
-         SET avatar_url = ?, common_phrase = ?, full_name = ?, age = ?, gender = ?, strengths = ?, job_hunting_status = ?,
+         SET avatar_url = ?, common_phrase = ?, full_name = ?, age = ?, gender = ?, strengths = ?,
+           expected_salary = ?, school = ?, major = ?, degree = ?, graduation_cohort = ?, work_experience = ?, location = ?, job_hunting_status = ?, expected_job_type = ?,
              expected_position = ?, internship_experience = ?, project_experience = ?,
              competition_experience = ?, campus_experience = ?, updated_at = ?
          WHERE user_id = ? AND identity = ?`,
@@ -180,7 +286,15 @@ router.put('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
           age ? Number(age) : null,
           gender || '',
           strengths || '',
+          expectedSalary || '',
+          school || '',
+          major || '',
+          degree || '',
+          graduationCohort || '',
+          workExperience || '',
+          location || '其他',
           jobHuntingStatus || '考虑机会',
+          expectedJobType || '不限',
           expectedPosition || '',
           internshipExperience || '',
           projectExperience || '',
@@ -194,10 +308,11 @@ router.put('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
     } else {
       await run(
         `INSERT INTO identity_profiles (
-          user_id, identity, avatar_url, common_phrase, full_name, age, gender, strengths, job_hunting_status,
+          user_id, identity, avatar_url, common_phrase, full_name, age, gender, strengths,
+          expected_salary, school, major, degree, graduation_cohort, work_experience, location, job_hunting_status, expected_job_type,
           expected_position, internship_experience, project_experience,
           competition_experience, campus_experience, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
         [
           req.user.id,
           'jobseeker',
@@ -207,7 +322,15 @@ router.put('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
           age ? Number(age) : null,
           gender || '',
           strengths || '',
+          expectedSalary || '',
+          school || '',
+          major || '',
+          degree || '',
+          graduationCohort || '',
+          workExperience || '',
+          location || '其他',
           jobHuntingStatus || '考虑机会',
+          expectedJobType || '不限',
           expectedPosition || '',
           internshipExperience || '',
           projectExperience || '',
@@ -248,21 +371,33 @@ router.get('/seekers', authenticate, requireIdentity(['recruiter']), async (req,
     const keyword = String(req.query.keyword || '').trim().toLowerCase();
     const jobTag = String(req.query.jobTag || '').trim().toLowerCase();
     const jobHuntingStatus = String(req.query.jobHuntingStatus || '').trim();
+    const expectedJobType = String(req.query.expectedJobType || '').trim();
+    const expectedSalary = String(req.query.expectedSalary || '').trim();
+    const degree = String(req.query.degree || '').trim();
+    const workExperience = String(req.query.workExperience || '').trim();
+    const location = String(req.query.location || '').trim();
 
     const rows = await all(
       `SELECT u.id AS user_id, u.username,
               r.full_name, r.skills, r.experience, r.education, r.updated_at,
-              r.age, r.gender, r.strengths, r.job_hunting_status, r.expected_position,
+              r.expected_salary, r.school, COALESCE(r.major, u.major, '') AS major,
+              r.degree, r.graduation_cohort, r.work_experience, r.location,
+              r.age, r.gender, r.strengths, r.job_hunting_status, r.expected_job_type, r.expected_position,
               r.internship_experience, r.project_experience,
               r.competition_experience, r.campus_experience,
               COALESCE(ip.avatar_url, '') AS avatar_url,
-              COALESCE(ip.common_phrase, '') AS common_phrase
+              COALESCE(ip.common_phrase, '') AS common_phrase,
+              (
+                SELECT MAX(m.created_at)
+                FROM messages m
+                WHERE m.from_user_id = u.id
+              ) AS last_sent_at
        FROM users u
        JOIN resumes r ON r.user_id = u.id
        LEFT JOIN identity_profiles ip ON ip.user_id = u.id AND ip.identity = 'jobseeker'
        WHERE TRIM(COALESCE(r.expected_position, '')) != ''
          AND TRIM(COALESCE(r.strengths, '')) != ''
-       ORDER BY r.updated_at DESC`
+       ORDER BY last_sent_at DESC, r.updated_at DESC`
     );
 
     const recruiterJobs = await all('SELECT tags FROM jobs WHERE recruiter_user_id = ?', [req.user.id]);
@@ -290,13 +425,33 @@ router.get('/seekers', authenticate, requireIdentity(['recruiter']), async (req,
 
     if (keyword) {
       filteredRows = filteredRows.filter((row) => {
-        const text = `${row.strengths || ''} ${row.expected_position || ''} ${row.skills || ''}`.toLowerCase();
+        const text = `${row.strengths || ''} ${row.expected_position || ''}`.toLowerCase();
         return text.includes(keyword);
       });
     }
 
-    if (jobHuntingStatus && jobHuntingStatus !== '无限制') {
+    if (jobHuntingStatus && jobHuntingStatus !== '无限制' && jobHuntingStatus !== '不限') {
       filteredRows = filteredRows.filter((row) => (row.job_hunting_status || '考虑机会') === jobHuntingStatus);
+    }
+
+    if (expectedJobType && expectedJobType !== '不限') {
+      filteredRows = filteredRows.filter((row) => (row.expected_job_type || '不限') === expectedJobType);
+    }
+
+    if (expectedSalary && expectedSalary !== '不限') {
+      filteredRows = filteredRows.filter((row) => matchSalaryBand(row.expected_salary || '', expectedSalary));
+    }
+
+    if (degree && degree !== '不限') {
+      filteredRows = filteredRows.filter((row) => (row.degree || row.education || '不限') === degree);
+    }
+
+    if (workExperience && workExperience !== '不限') {
+      filteredRows = filteredRows.filter((row) => (row.work_experience || row.experience || '不限') === workExperience);
+    }
+
+    if (location && location !== '不限') {
+      filteredRows = filteredRows.filter((row) => (row.location || '其他') === location);
     }
 
     await trackBehavior({
@@ -337,7 +492,9 @@ router.get('/seekers/:userId', authenticate, requireIdentity(['recruiter']), asy
     const row = await get(
       `SELECT u.id AS user_id, u.username,
               r.full_name, r.skills, r.experience, r.education, r.updated_at,
-              r.age, r.gender, r.strengths, r.job_hunting_status, r.expected_position,
+              r.expected_salary, r.school, COALESCE(r.major, u.major, '') AS major,
+              r.degree, r.graduation_cohort, r.work_experience, r.location,
+              r.age, r.gender, r.strengths, r.job_hunting_status, r.expected_job_type, r.expected_position,
               r.internship_experience, r.project_experience,
               r.competition_experience, r.campus_experience,
               COALESCE(ip.avatar_url, '') AS avatar_url,
@@ -385,7 +542,7 @@ router.post('/seekers/:userId/invite', authenticate, requireIdentity(['recruiter
       'SELECT common_phrase FROM identity_profiles WHERE user_id = ? AND identity = ?',
       [req.user.id, 'recruiter']
     );
-    const commonPhrase = commonPhraseRow?.common_phrase || '';
+    const commonPhrase = String(commonPhraseRow?.common_phrase || '').trim() || DEFAULT_RECRUITER_PHRASE;
 
     const snapshotJob = {
       id: job.id,
@@ -422,7 +579,7 @@ router.post('/seekers/:userId/invite', authenticate, requireIdentity(['recruiter
       [
         req.user.id,
         seekerUserId,
-        `${req.user.username} 邀请你应聘岗位`,
+        '',
         'invitation_card',
         JSON.stringify(cardPayload),
         new Date().toISOString()

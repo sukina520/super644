@@ -37,7 +37,15 @@ function makeWordHtml({ nickname, identity, profile }) {
     append('姓名', profile.full_name);
     append('年龄', profile.age);
     append('性别', profile.gender);
+    append('期望薪资', profile.expected_salary);
+    append('学校', profile.school);
+    append('专业', profile.major);
+    append('学历', profile.degree);
+    append('毕业届别', profile.graduation_cohort);
+    append('工作经验', profile.work_experience);
+    append('个人所在地', profile.location);
     append('求职状态', profile.job_hunting_status);
+    append('求职类型', profile.expected_job_type);
     append('个人优势', profile.strengths);
     append('期望岗位', profile.expected_position);
     append('在校经历', profile.campus_experience);
@@ -112,7 +120,15 @@ router.put('/me', authenticate, async (req, res) => {
       age,
       gender,
       strengths,
+      expectedSalary,
+      school,
+      major,
+      degree,
+      graduationCohort,
+      workExperience,
+      location,
       jobHuntingStatus,
+      expectedJobType,
       expectedPosition,
       internshipExperience,
       projectExperience,
@@ -138,7 +154,9 @@ router.put('/me', authenticate, async (req, res) => {
         `UPDATE identity_profiles
          SET avatar_url = ?, common_phrase = ?,
              company_name = ?, company_address = ?, company_size = ?, company_intro = ?,
-             full_name = ?, age = ?, gender = ?, strengths = ?, job_hunting_status = ?, expected_position = ?,
+           full_name = ?, age = ?, gender = ?, strengths = ?,
+             expected_salary = ?, school = ?, major = ?, degree = ?, graduation_cohort = ?, work_experience = ?, location = ?,
+             job_hunting_status = ?, expected_job_type = ?, expected_position = ?,
              internship_experience = ?, project_experience = ?, competition_experience = ?,
              campus_experience = ?, updated_at = ?
          WHERE user_id = ? AND identity = ?`,
@@ -153,7 +171,15 @@ router.put('/me', authenticate, async (req, res) => {
           age ? Number(age) : null,
           gender || '',
           strengths || '',
+          expectedSalary || '',
+          school || '',
+          major || '',
+          degree || '',
+          graduationCohort || '',
+          workExperience || '',
+          location || '其他',
           identity === 'jobseeker' ? (jobHuntingStatus || '考虑机会') : '',
+          identity === 'jobseeker' ? (expectedJobType || '不限') : '',
           expectedPosition || '',
           internshipExperience || '',
           projectExperience || '',
@@ -169,10 +195,12 @@ router.put('/me', authenticate, async (req, res) => {
         `INSERT INTO identity_profiles (
           user_id, identity, avatar_url, common_phrase,
           company_name, company_address, company_size, company_intro,
-          full_name, age, gender, strengths, job_hunting_status, expected_position,
+          full_name, age, gender, strengths,
+          expected_salary, school, major, degree, graduation_cohort, work_experience, location,
+          job_hunting_status, expected_job_type, expected_position,
           internship_experience, project_experience, competition_experience,
           campus_experience, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
         [
           req.user.id,
           identity,
@@ -186,7 +214,15 @@ router.put('/me', authenticate, async (req, res) => {
           age ? Number(age) : null,
           gender || '',
           strengths || '',
+          expectedSalary || '',
+          school || '',
+          major || '',
+          degree || '',
+          graduationCohort || '',
+          workExperience || '',
+          location || '其他',
           identity === 'jobseeker' ? (jobHuntingStatus || '考虑机会') : '',
+          identity === 'jobseeker' ? (expectedJobType || '不限') : '',
           expectedPosition || '',
           internshipExperience || '',
           projectExperience || '',
@@ -220,7 +256,9 @@ router.put('/me', authenticate, async (req, res) => {
       if (resume) {
         await run(
           `UPDATE resumes
-             SET full_name = ?, age = ?, gender = ?, strengths = ?, job_hunting_status = ?, expected_position = ?,
+               SET full_name = ?, age = ?, gender = ?, strengths = ?,
+                 expected_salary = ?, school = ?, major = ?, degree = ?, graduation_cohort = ?, work_experience = ?, location = ?,
+                 job_hunting_status = ?, expected_job_type = ?, expected_position = ?,
                internship_experience = ?, project_experience = ?, competition_experience = ?,
                campus_experience = ?, updated_at = ?
            WHERE user_id = ?`,
@@ -229,7 +267,15 @@ router.put('/me', authenticate, async (req, res) => {
             age ? Number(age) : null,
             gender || '',
             strengths || '',
+            expectedSalary || '',
+            school || '',
+            major || '',
+            degree || '',
+            graduationCohort || '',
+            workExperience || '',
+            location || '其他',
             jobHuntingStatus || '考虑机会',
+            expectedJobType || '不限',
             expectedPosition || '',
             internshipExperience || '',
             projectExperience || '',
@@ -242,10 +288,12 @@ router.put('/me', authenticate, async (req, res) => {
       } else {
         await run(
           `INSERT INTO resumes (
-            user_id, full_name, skills, experience, education, gender, age, strengths, job_hunting_status,
+              user_id, full_name, skills, experience, education, gender, age, strengths,
+              expected_salary, school, major, degree, graduation_cohort, work_experience, location,
+              job_hunting_status, expected_job_type,
             expected_position, internship_experience, project_experience,
             competition_experience, campus_experience, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
           [
             req.user.id,
             fullName || '',
@@ -255,7 +303,15 @@ router.put('/me', authenticate, async (req, res) => {
             gender || '',
             age ? Number(age) : null,
             strengths || '',
+            expectedSalary || '',
+            school || '',
+            major || '',
+            degree || '',
+            graduationCohort || '',
+            workExperience || '',
+            location || '其他',
             jobHuntingStatus || '考虑机会',
+            expectedJobType || '不限',
             expectedPosition || '',
             internshipExperience || '',
             projectExperience || '',
@@ -354,10 +410,12 @@ router.post('/register-identity', authenticate, async (req, res) => {
       await run(
         `INSERT INTO identity_profiles (
           user_id, identity, avatar_url, common_phrase,
-          full_name, age, gender, strengths, job_hunting_status, expected_position,
+          full_name, age, gender, strengths,
+          expected_salary, school, major, degree, graduation_cohort, work_experience, location,
+          job_hunting_status, expected_job_type, expected_position,
           internship_experience, project_experience, competition_experience,
           campus_experience, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
         [
           req.user.id,
           'jobseeker',
@@ -367,7 +425,15 @@ router.post('/register-identity', authenticate, async (req, res) => {
           Number(jobseekerProfile.age),
           jobseekerProfile.gender,
           jobseekerProfile.strengths,
+          jobseekerProfile.expectedSalary || '',
+          jobseekerProfile.school || '',
+          jobseekerProfile.major || '',
+          jobseekerProfile.degree || '',
+          jobseekerProfile.graduationCohort || '',
+          jobseekerProfile.workExperience || '',
+          jobseekerProfile.location || '其他',
           jobseekerProfile.jobHuntingStatus,
+          jobseekerProfile.expectedJobType || '不限',
           jobseekerProfile.expectedPosition || '',
           jobseekerProfile.internshipExperience || '',
           jobseekerProfile.projectExperience || '',
@@ -381,7 +447,9 @@ router.post('/register-identity', authenticate, async (req, res) => {
       if (resumeExisted) {
         await run(
           `UPDATE resumes
-           SET full_name = ?, age = ?, gender = ?, strengths = ?, job_hunting_status = ?, expected_position = ?,
+             SET full_name = ?, age = ?, gender = ?, strengths = ?,
+               expected_salary = ?, school = ?, major = ?, degree = ?, graduation_cohort = ?, work_experience = ?, location = ?,
+               job_hunting_status = ?, expected_job_type = ?, expected_position = ?,
                internship_experience = ?, project_experience = ?, competition_experience = ?,
                campus_experience = ?, updated_at = ?
            WHERE user_id = ?`,
@@ -390,7 +458,15 @@ router.post('/register-identity', authenticate, async (req, res) => {
             Number(jobseekerProfile.age),
             jobseekerProfile.gender,
             jobseekerProfile.strengths,
+            jobseekerProfile.expectedSalary || '',
+            jobseekerProfile.school || '',
+            jobseekerProfile.major || '',
+            jobseekerProfile.degree || '',
+            jobseekerProfile.graduationCohort || '',
+            jobseekerProfile.workExperience || '',
+            jobseekerProfile.location || '其他',
             jobseekerProfile.jobHuntingStatus,
+            jobseekerProfile.expectedJobType || '不限',
             jobseekerProfile.expectedPosition || '',
             jobseekerProfile.internshipExperience || '',
             jobseekerProfile.projectExperience || '',
@@ -403,10 +479,12 @@ router.post('/register-identity', authenticate, async (req, res) => {
       } else {
         await run(
           `INSERT INTO resumes (
-            user_id, full_name, skills, experience, education, gender, age, strengths, job_hunting_status,
+              user_id, full_name, skills, experience, education, gender, age, strengths,
+              expected_salary, school, major, degree, graduation_cohort, work_experience, location,
+              job_hunting_status, expected_job_type,
             expected_position, internship_experience, project_experience,
             competition_experience, campus_experience, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
           [
             req.user.id,
             jobseekerProfile.fullName,
@@ -416,7 +494,15 @@ router.post('/register-identity', authenticate, async (req, res) => {
             jobseekerProfile.gender,
             Number(jobseekerProfile.age),
             jobseekerProfile.strengths,
+            jobseekerProfile.expectedSalary || '',
+            jobseekerProfile.school || '',
+            jobseekerProfile.major || '',
+            jobseekerProfile.degree || '',
+            jobseekerProfile.graduationCohort || '',
+            jobseekerProfile.workExperience || '',
+            jobseekerProfile.location || '其他',
             jobseekerProfile.jobHuntingStatus,
+            jobseekerProfile.expectedJobType || '不限',
             jobseekerProfile.expectedPosition || '',
             jobseekerProfile.internshipExperience || '',
             jobseekerProfile.projectExperience || '',
