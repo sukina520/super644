@@ -14,6 +14,7 @@
       <template v-else>
         <h3>{{ seeker.fullName }}（{{ seeker.username }}）</h3>
         <p>性别：{{ seeker.gender || '-' }} | 年龄：{{ seeker.age || '-' }}</p>
+        <p>求职状态：{{ seeker.jobHuntingStatus || '考虑机会' }}</p>
         <p>个人优势：{{ seeker.strengths || '-' }}</p>
         <p>期望岗位：{{ seeker.expectedPosition || '-' }}</p>
         <p>实习经历：{{ seeker.internshipExperience || '-' }}</p>

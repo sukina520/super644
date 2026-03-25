@@ -10,8 +10,9 @@
           <h3>{{ job.title }}</h3>
           <p>{{ job.company }} | {{ job.city }} | {{ job.salaryRange }}</p>
           <p>{{ job.description }}</p>
-          <div class="tags">
-            <span v-for="tag in job.tags" :key="`${job.id}-${tag}`">{{ tag }}</span>
+          <div class="tags" v-if="job.categoryL1 || job.categoryL2">
+            <el-tag v-if="job.categoryL1" size="small" effect="plain">{{ job.categoryL1 }}</el-tag>
+            <el-tag v-if="job.categoryL2" size="small" effect="plain">{{ job.categoryL2 }}</el-tag>
           </div>
           <button
             v-if="canApply"
@@ -103,3 +104,12 @@ onUnmounted(() => {
   }
 });
 </script>
+
+<style scoped>
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+</style>

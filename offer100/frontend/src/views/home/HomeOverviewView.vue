@@ -16,15 +16,12 @@
           />
         </el-form-item>
         <el-form-item>
-          <el-select
-            v-model="seekerJobTag"
-            clearable
-            placeholder="按岗位标签筛选"
-            style="width: 220px"
-            @change="loadData"
-          >
-            <el-option v-for="item in seekerTagOptions" :key="item" :label="item" :value="item" />
+          <el-select v-model="seekerStatusFilter" style="width: 160px" @change="loadData">
+            <el-option v-for="opt in seekerStatusOptions" :key="opt" :label="opt" :value="opt" />
           </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button @click="resetSeekerFilters">重置</el-button>
         </el-form-item>
       </el-form>
 
@@ -67,9 +64,7 @@
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-select v-model="jobTagFilter" clearable placeholder="岗位标签" style="width: 160px">
-            <el-option v-for="opt in jobTagOptions" :key="opt" :label="opt" :value="opt" />
-          </el-select>
+          <el-button @click="resetJobFilters">重置</el-button>
         </el-form-item>
       </el-form>
 
@@ -90,7 +85,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { io } from 'socket.io-client';
 import http from '../../api/http';
@@ -109,13 +104,11 @@ const keyword = ref('');
 const educationFilter = ref('全部学历');
 const categoryL1Filter = ref('');
 const categoryL2Filter = ref('');
-const jobTagFilter = ref('');
 const seekerKeyword = ref('');
-const seekerJobTag = ref('');
-const seekerTagOptions = ref([]);
-const jobTagOptions = ref([]);
+const seekerStatusFilter = ref('无限制');
 const isRecruiter = computed(() => authStore.activeIdentity === 'recruiter');
-const educationOptions = ['全部学历', '本科', '双一流', '专科', '无限制'];
+const educationOptions = ['全部学历', '博士生', '研究生', '本科985', '本科211', '专科', '无限制'];
+const seekerStatusOptions = ['无限制', '随时到岗', '月内到岗', '考虑机会', '暂不考虑'];
 const categoryOptions = JOB_CATEGORY_TREE;
 const categoryL2Options = computed(() => {
   if (!categoryL1Filter.value) {
@@ -134,10 +127,8 @@ const filteredJobCards = computed(() => {
 
     const categoryL1Match = !categoryL1Filter.value || job.categoryL1 === categoryL1Filter.value;
     const categoryL2Match = !categoryL2Filter.value || job.categoryL2 === categoryL2Filter.value;
-    const tagMatch = !jobTagFilter.value
-      || (Array.isArray(job.tags) && job.tags.includes(jobTagFilter.value));
 
-    if (!educationMatch || !categoryL1Match || !categoryL2Match || !tagMatch) {
+    if (!educationMatch || !categoryL1Match || !categoryL2Match) {
       return false;
     }
 
@@ -167,30 +158,22 @@ async function loadData() {
     if (seekerKeyword.value) {
       params.keyword = seekerKeyword.value;
     }
-    if (seekerJobTag.value) {
-      params.jobTag = seekerJobTag.value;
+    if (seekerStatusFilter.value && seekerStatusFilter.value !== '无限制') {
+      params.jobHuntingStatus = seekerStatusFilter.value;
     }
 
-    const [seekersRes, tagsRes] = await Promise.all([
-      http.get('/resume/seekers', { params }),
-      http.get('/resume/job-tags')
-    ]);
+    const seekersRes = await http.get('/resume/seekers', { params });
 
     const data = seekersRes.data;
     seekerCards.value = data;
-    seekerTagOptions.value = Array.isArray(tagsRes.data) ? tagsRes.data : [];
     jobCards.value = [];
     return;
   }
 
-  const [jobsRes, tagsRes] = await Promise.all([
-    http.get('/jobs'),
-    http.get('/jobs/tags')
-  ]);
+  const jobsRes = await http.get('/jobs');
 
   const data = jobsRes.data;
   jobCards.value = data;
-  jobTagOptions.value = Array.isArray(tagsRes.data) ? tagsRes.data : [];
   seekerCards.value = [];
 }
 
@@ -218,6 +201,19 @@ function chatWithRecruiter(userId) {
   router.push(`/chat?with=${userId}`);
 }
 
+async function resetSeekerFilters() {
+  seekerKeyword.value = '';
+  seekerStatusFilter.value = '无限制';
+  await loadData();
+}
+
+function resetJobFilters() {
+  keyword.value = '';
+  educationFilter.value = '全部学历';
+  categoryL1Filter.value = '';
+  categoryL2Filter.value = '';
+}
+
 onMounted(async () => {
   await loadData();
 
@@ -237,6 +233,14 @@ onMounted(async () => {
     }
   });
 });
+
+watch(
+  () => authStore.activeIdentity,
+  async () => {
+    tip.value = '';
+    await loadData();
+  }
+);
 
 onUnmounted(() => {
   if (socket) {

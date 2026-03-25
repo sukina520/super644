@@ -1,6 +1,16 @@
 const { verifyToken } = require('../utils/token');
+const { get } = require('../data/db');
 
-function authenticate(req, res, next) {
+function parseIdentities(raw) {
+  try {
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
@@ -10,17 +20,32 @@ function authenticate(req, res, next) {
 
   try {
     const payload = verifyToken(token);
-    const activeIdentityHeader = req.headers['x-active-identity'];
-    const identities = Array.isArray(payload.identities)
-      ? payload.identities
-      : ['recruiter', 'jobseeker'];
-    const activeIdentity = identities.includes(activeIdentityHeader)
-      ? activeIdentityHeader
-      : identities[0];
+    const userRow = await get(
+      'SELECT username, role, identities, initial_identity FROM users WHERE id = ?',
+      [payload.id]
+    );
 
-    req.user = payload;
-    req.user.identities = identities;
-    req.user.activeIdentity = activeIdentity;
+    if (!userRow) {
+      return res.status(401).json({ message: 'Unauthorized: user not found' });
+    }
+
+    const activeIdentityHeader = req.headers['x-active-identity'];
+    const identities = parseIdentities(userRow.identities);
+    const normalizedIdentities = identities.length > 0 ? identities : ['jobseeker'];
+    const activeIdentity = normalizedIdentities.includes(activeIdentityHeader)
+      ? activeIdentityHeader
+      : normalizedIdentities.includes(userRow.initial_identity)
+        ? userRow.initial_identity
+        : normalizedIdentities[0];
+
+    req.user = {
+      ...payload,
+      username: userRow.username || payload.username,
+      role: userRow.role || payload.role,
+      identities: normalizedIdentities,
+      initialIdentity: userRow.initial_identity || payload.initialIdentity,
+      activeIdentity
+    };
     next();
   } catch (error) {
     return res.status(401).json({ message: 'Unauthorized: token invalid' });

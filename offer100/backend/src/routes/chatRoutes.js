@@ -122,6 +122,32 @@ router.get('/unread-summary', authenticate, async (req, res) => {
   }
 });
 
+router.post('/mark-all-read', authenticate, async (req, res) => {
+  try {
+    const marked = await run(
+      `UPDATE messages
+       SET is_read = 1
+       WHERE to_user_id = ? AND COALESCE(is_read, 0) = 0`,
+      [req.user.id]
+    );
+
+    if (marked.changes > 0) {
+      emitRecruitmentUpdate({
+        type: 'chat_read',
+        payload: {
+          userId: req.user.id,
+          withUserId: 0,
+          readCount: marked.changes
+        }
+      });
+    }
+
+    return res.json({ readCount: Number(marked.changes || 0) });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to mark all read', detail: error.message });
+  }
+});
+
 router.get('/conversation/:userId', authenticate, async (req, res) => {
   try {
     const otherUserId = Number(req.params.userId);

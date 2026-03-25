@@ -3,6 +3,7 @@ const { get, run } = require('../data/db');
 const { signToken } = require('../utils/token');
 
 const router = express.Router();
+const JOB_HUNTING_STATUS = ['随时到岗', '月内到岗', '考虑机会', '暂不考虑'];
 
 function normalizeIdentities(initialIdentity) {
   const base = ['jobseeker', 'recruiter'];
@@ -38,9 +39,12 @@ router.post('/register', async (req, res) => {
     }
 
     if (initialIdentity === 'jobseeker') {
-      const { fullName, age, gender, strengths } = jobseekerProfile;
-      if (!fullName || !age || !gender || !strengths) {
-        return res.status(400).json({ message: '注册求职者身份必须填写个人信息、年龄、性别和个人优势' });
+      const { fullName, age, gender, strengths, jobHuntingStatus } = jobseekerProfile;
+      if (!fullName || !age || !gender || !strengths || !jobHuntingStatus) {
+        return res.status(400).json({ message: '注册求职者身份必须填写个人信息、年龄、性别、个人优势和求职状态' });
+      }
+      if (!JOB_HUNTING_STATUS.includes(jobHuntingStatus)) {
+        return res.status(400).json({ message: '求职状态不合法' });
       }
     }
 
@@ -121,6 +125,7 @@ router.post('/register', async (req, res) => {
         age,
         gender,
         strengths,
+        jobHuntingStatus,
         internshipExperience,
         projectExperience,
         competitionExperience,
@@ -140,13 +145,14 @@ router.post('/register', async (req, res) => {
           gender,
           age,
           strengths,
+          job_hunting_status,
           expected_position,
           internship_experience,
           project_experience,
           competition_experience,
           campus_experience,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
         [
           userId,
           fullName,
@@ -156,6 +162,7 @@ router.post('/register', async (req, res) => {
           gender,
           Number(age),
           strengths,
+          jobHuntingStatus,
           expectedPosition || '',
           internshipExperience || '',
           projectExperience || '',
@@ -175,13 +182,14 @@ router.post('/register', async (req, res) => {
           age,
           gender,
           strengths,
+          job_hunting_status,
           expected_position,
           internship_experience,
           project_experience,
           competition_experience,
           campus_experience,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
         [
           userId,
           'jobseeker',
@@ -191,6 +199,7 @@ router.post('/register', async (req, res) => {
           Number(age),
           gender,
           strengths,
+          jobHuntingStatus,
           expectedPosition || '',
           internshipExperience || '',
           projectExperience || '',

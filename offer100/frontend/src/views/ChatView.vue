@@ -46,7 +46,7 @@
               <strong>{{ msg.from_user_id === authStore.user?.id ? '我' : '对方' }}:</strong>
               <template v-if="msg.message_type === 'application_card' || msg.message_type === 'invitation_card'">
                 <p>{{ msg.content }}</p>
-                <div class="card-msg" v-if="safePayload(msg)">
+                <button class="card-msg" v-if="safePayload(msg)" @click="openCardDetail(safePayload(msg), msg.message_type)">
                   <p><strong>{{ safePayload(msg).title }}</strong></p>
                   <p v-if="safePayload(msg).job">
                     岗位：{{ safePayload(msg).job.title }} | {{ safePayload(msg).job.company }} | {{ safePayload(msg).job.city }}
@@ -54,7 +54,8 @@
                   <p v-if="safePayload(msg).seeker">
                     求职者：{{ safePayload(msg).seeker.fullName }}，优势：{{ safePayload(msg).seeker.strengths }}
                   </p>
-                </div>
+                  <p class="card-tip">点击查看详情</p>
+                </button>
               </template>
               <template v-else>
                 {{ msg.content }}
@@ -78,7 +79,7 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { io } from 'socket.io-client';
 import http from '../api/http';
@@ -175,12 +176,32 @@ function safePayload(message) {
   }
 }
 
+function openCardDetail(payload, messageType) {
+  if (!payload) {
+    return;
+  }
+
+  if (messageType === 'application_card' && authStore.activeIdentity === 'recruiter' && payload.seeker?.userId) {
+    router.push(`/seekers/${payload.seeker.userId}`);
+    return;
+  }
+
+  if (payload.job?.id) {
+    router.push(`/jobs/${payload.job.id}`);
+  }
+}
+
 function logout() {
   authStore.logout();
   router.push('/login');
 }
 
 onMounted(async () => {
+  try {
+    await http.post('/chat/mark-all-read');
+  } catch (error) {
+    // ignore mark-all-read failure to keep chat usable
+  }
   await loadContacts();
 
   socket = io('http://localhost:3001');
@@ -198,6 +219,22 @@ onMounted(async () => {
     }
   });
 });
+
+watch(
+  () => route.query.with,
+  async () => {
+    await loadContacts();
+  }
+);
+
+watch(
+  () => authStore.activeIdentity,
+  async () => {
+    activeContactId.value = 0;
+    messages.value = [];
+    await loadContacts();
+  }
+);
 
 onUnmounted(() => {
   if (socket) {
@@ -266,11 +303,20 @@ onUnmounted(() => {
 }
 
 .card-msg {
+  width: 100%;
   margin-top: 6px;
   padding: 8px;
   border-radius: 8px;
   background: #ebf4ff;
   border: 1px solid #bfd5ff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.card-tip {
+  margin: 6px 0 0;
+  color: #1d4c95;
+  font-size: 12px;
 }
 
 .chat-form {

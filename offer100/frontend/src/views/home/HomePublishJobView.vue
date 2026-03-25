@@ -28,14 +28,13 @@
       </el-form-item>
       <el-form-item label="学历要求" required>
         <el-select v-model="jobForm.educationRequirement" placeholder="请选择学历要求">
-          <el-option label="本科" value="本科" />
-          <el-option label="双一流" value="双一流" />
+          <el-option label="博士生" value="博士生" />
+          <el-option label="研究生" value="研究生" />
+          <el-option label="本科985" value="本科985" />
+          <el-option label="本科211" value="本科211" />
           <el-option label="专科" value="专科" />
           <el-option label="无限制" value="无限制" />
         </el-select>
-      </el-form-item>
-      <el-form-item label="岗位标签" required>
-        <el-input v-model.trim="jobForm.tags" placeholder="如：vue,javascript,frontend" />
       </el-form-item>
       <el-form-item label="岗位描述" required>
         <el-input v-model.trim="jobForm.description" type="textarea" :rows="4" placeholder="描述岗位职责与要求" />
@@ -64,7 +63,7 @@ const jobForm = reactive({
   categoryL1: '互联网 / AI',
   categoryL2: '前端开发（Vue / React）',
   salaryRange: '12k-18k',
-  educationRequirement: '本科',
+  educationRequirement: '本科211',
   tags: 'vue,javascript,frontend',
   description: '负责企业级 Web 前端开发。'
 });

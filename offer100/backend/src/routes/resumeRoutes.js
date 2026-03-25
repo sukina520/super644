@@ -5,6 +5,7 @@ const { trackBehavior } = require('../services/behaviorService');
 const { emitRecruitmentUpdate } = require('../modules/socketHub');
 
 const router = express.Router();
+const JOB_HUNTING_STATUS = ['随时到岗', '月内到岗', '考虑机会', '暂不考虑'];
 
 function parseJsonArray(raw) {
   try {
@@ -26,6 +27,7 @@ function mapResumeRow(row) {
     age: row.age,
     gender: row.gender,
     strengths: row.strengths,
+    jobHuntingStatus: row.job_hunting_status || '考虑机会',
     expectedPosition: row.expected_position,
     internshipExperience: row.internship_experience,
     projectExperience: row.project_experience,
@@ -41,7 +43,7 @@ router.get('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
   try {
     const resume = await get(
       `SELECT r.id, r.full_name, r.skills, r.experience, r.education, r.updated_at,
-              r.age, r.gender, r.strengths, r.expected_position,
+              r.age, r.gender, r.strengths, r.job_hunting_status, r.expected_position,
               r.internship_experience, r.project_experience,
               r.competition_experience, r.campus_experience,
               COALESCE(ip.avatar_url, '') AS avatar_url,
@@ -62,6 +64,7 @@ router.get('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
         age: null,
         gender: '',
         strengths: '',
+        job_hunting_status: '考虑机会',
         expected_position: '',
         internship_experience: '',
         project_experience: '',
@@ -89,6 +92,7 @@ router.put('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
       age,
       gender,
       strengths,
+      jobHuntingStatus,
       expectedPosition,
       internshipExperience,
       projectExperience,
@@ -99,13 +103,16 @@ router.put('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
     } = req.body;
 
     const now = new Date().toISOString();
+    if (jobHuntingStatus && !JOB_HUNTING_STATUS.includes(jobHuntingStatus)) {
+      return res.status(400).json({ message: '求职状态不合法' });
+    }
     const existed = await get('SELECT id FROM resumes WHERE user_id = ?', [req.user.id]);
 
     if (existed) {
       await run(
         `UPDATE resumes
          SET full_name = ?, skills = ?, experience = ?, education = ?,
-             age = ?, gender = ?, strengths = ?, expected_position = ?,
+             age = ?, gender = ?, strengths = ?, job_hunting_status = ?, expected_position = ?,
              internship_experience = ?, project_experience = ?,
              competition_experience = ?, campus_experience = ?, updated_at = ?
          WHERE user_id = ?`,
@@ -117,6 +124,7 @@ router.put('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
           age ? Number(age) : null,
           gender,
           strengths,
+          jobHuntingStatus || '考虑机会',
           expectedPosition,
           internshipExperience,
           projectExperience,
@@ -129,10 +137,10 @@ router.put('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
     } else {
       await run(
         `INSERT INTO resumes (
-          user_id, full_name, skills, experience, education, age, gender, strengths,
+          user_id, full_name, skills, experience, education, age, gender, strengths, job_hunting_status,
           expected_position, internship_experience, project_experience,
           competition_experience, campus_experience, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
         [
           req.user.id,
           fullName,
@@ -142,6 +150,7 @@ router.put('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
           age ? Number(age) : null,
           gender,
           strengths,
+          jobHuntingStatus || '考虑机会',
           expectedPosition,
           internshipExperience,
           projectExperience,
@@ -160,7 +169,7 @@ router.put('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
     if (identityExisted) {
       await run(
         `UPDATE identity_profiles
-         SET avatar_url = ?, common_phrase = ?, full_name = ?, age = ?, gender = ?, strengths = ?,
+         SET avatar_url = ?, common_phrase = ?, full_name = ?, age = ?, gender = ?, strengths = ?, job_hunting_status = ?,
              expected_position = ?, internship_experience = ?, project_experience = ?,
              competition_experience = ?, campus_experience = ?, updated_at = ?
          WHERE user_id = ? AND identity = ?`,
@@ -171,6 +180,7 @@ router.put('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
           age ? Number(age) : null,
           gender || '',
           strengths || '',
+          jobHuntingStatus || '考虑机会',
           expectedPosition || '',
           internshipExperience || '',
           projectExperience || '',
@@ -184,10 +194,10 @@ router.put('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
     } else {
       await run(
         `INSERT INTO identity_profiles (
-          user_id, identity, avatar_url, common_phrase, full_name, age, gender, strengths,
+          user_id, identity, avatar_url, common_phrase, full_name, age, gender, strengths, job_hunting_status,
           expected_position, internship_experience, project_experience,
           competition_experience, campus_experience, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
         [
           req.user.id,
           'jobseeker',
@@ -197,6 +207,7 @@ router.put('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
           age ? Number(age) : null,
           gender || '',
           strengths || '',
+          jobHuntingStatus || '考虑机会',
           expectedPosition || '',
           internshipExperience || '',
           projectExperience || '',
@@ -236,11 +247,12 @@ router.get('/seekers', authenticate, requireIdentity(['recruiter']), async (req,
   try {
     const keyword = String(req.query.keyword || '').trim().toLowerCase();
     const jobTag = String(req.query.jobTag || '').trim().toLowerCase();
+    const jobHuntingStatus = String(req.query.jobHuntingStatus || '').trim();
 
     const rows = await all(
       `SELECT u.id AS user_id, u.username,
               r.full_name, r.skills, r.experience, r.education, r.updated_at,
-              r.age, r.gender, r.strengths, r.expected_position,
+              r.age, r.gender, r.strengths, r.job_hunting_status, r.expected_position,
               r.internship_experience, r.project_experience,
               r.competition_experience, r.campus_experience,
               COALESCE(ip.avatar_url, '') AS avatar_url,
@@ -283,6 +295,10 @@ router.get('/seekers', authenticate, requireIdentity(['recruiter']), async (req,
       });
     }
 
+    if (jobHuntingStatus && jobHuntingStatus !== '无限制') {
+      filteredRows = filteredRows.filter((row) => (row.job_hunting_status || '考虑机会') === jobHuntingStatus);
+    }
+
     await trackBehavior({
       userId: req.user.id,
       role: req.user.activeIdentity,
@@ -321,7 +337,7 @@ router.get('/seekers/:userId', authenticate, requireIdentity(['recruiter']), asy
     const row = await get(
       `SELECT u.id AS user_id, u.username,
               r.full_name, r.skills, r.experience, r.education, r.updated_at,
-              r.age, r.gender, r.strengths, r.expected_position,
+              r.age, r.gender, r.strengths, r.job_hunting_status, r.expected_position,
               r.internship_experience, r.project_experience,
               r.competition_experience, r.campus_experience,
               COALESCE(ip.avatar_url, '') AS avatar_url,

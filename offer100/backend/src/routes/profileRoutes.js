@@ -3,6 +3,7 @@ const { get, run } = require('../data/db');
 const { authenticate } = require('../middleware/auth');
 
 const router = express.Router();
+const JOB_HUNTING_STATUS = ['随时到岗', '月内到岗', '考虑机会', '暂不考虑'];
 
 function parseIdentities(raw) {
   try {
@@ -36,6 +37,7 @@ function makeWordHtml({ nickname, identity, profile }) {
     append('姓名', profile.full_name);
     append('年龄', profile.age);
     append('性别', profile.gender);
+    append('求职状态', profile.job_hunting_status);
     append('个人优势', profile.strengths);
     append('期望岗位', profile.expected_position);
     append('在校经历', profile.campus_experience);
@@ -110,6 +112,7 @@ router.put('/me', authenticate, async (req, res) => {
       age,
       gender,
       strengths,
+      jobHuntingStatus,
       expectedPosition,
       internshipExperience,
       projectExperience,
@@ -119,6 +122,10 @@ router.put('/me', authenticate, async (req, res) => {
 
     if (nickname) {
       await run('UPDATE users SET nickname = ? WHERE id = ?', [nickname, req.user.id]);
+    }
+
+    if (identity === 'jobseeker' && jobHuntingStatus && !JOB_HUNTING_STATUS.includes(jobHuntingStatus)) {
+      return res.status(400).json({ message: '求职状态不合法' });
     }
 
     const existed = await get(
@@ -131,7 +138,7 @@ router.put('/me', authenticate, async (req, res) => {
         `UPDATE identity_profiles
          SET avatar_url = ?, common_phrase = ?,
              company_name = ?, company_address = ?, company_size = ?, company_intro = ?,
-             full_name = ?, age = ?, gender = ?, strengths = ?, expected_position = ?,
+             full_name = ?, age = ?, gender = ?, strengths = ?, job_hunting_status = ?, expected_position = ?,
              internship_experience = ?, project_experience = ?, competition_experience = ?,
              campus_experience = ?, updated_at = ?
          WHERE user_id = ? AND identity = ?`,
@@ -146,6 +153,7 @@ router.put('/me', authenticate, async (req, res) => {
           age ? Number(age) : null,
           gender || '',
           strengths || '',
+          identity === 'jobseeker' ? (jobHuntingStatus || '考虑机会') : '',
           expectedPosition || '',
           internshipExperience || '',
           projectExperience || '',
@@ -161,10 +169,10 @@ router.put('/me', authenticate, async (req, res) => {
         `INSERT INTO identity_profiles (
           user_id, identity, avatar_url, common_phrase,
           company_name, company_address, company_size, company_intro,
-          full_name, age, gender, strengths, expected_position,
+          full_name, age, gender, strengths, job_hunting_status, expected_position,
           internship_experience, project_experience, competition_experience,
           campus_experience, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
         [
           req.user.id,
           identity,
@@ -178,6 +186,7 @@ router.put('/me', authenticate, async (req, res) => {
           age ? Number(age) : null,
           gender || '',
           strengths || '',
+          identity === 'jobseeker' ? (jobHuntingStatus || '考虑机会') : '',
           expectedPosition || '',
           internshipExperience || '',
           projectExperience || '',
@@ -211,7 +220,7 @@ router.put('/me', authenticate, async (req, res) => {
       if (resume) {
         await run(
           `UPDATE resumes
-           SET full_name = ?, age = ?, gender = ?, strengths = ?, expected_position = ?,
+             SET full_name = ?, age = ?, gender = ?, strengths = ?, job_hunting_status = ?, expected_position = ?,
                internship_experience = ?, project_experience = ?, competition_experience = ?,
                campus_experience = ?, updated_at = ?
            WHERE user_id = ?`,
@@ -220,6 +229,7 @@ router.put('/me', authenticate, async (req, res) => {
             age ? Number(age) : null,
             gender || '',
             strengths || '',
+            jobHuntingStatus || '考虑机会',
             expectedPosition || '',
             internshipExperience || '',
             projectExperience || '',
@@ -232,10 +242,10 @@ router.put('/me', authenticate, async (req, res) => {
       } else {
         await run(
           `INSERT INTO resumes (
-            user_id, full_name, skills, experience, education, gender, age, strengths,
+            user_id, full_name, skills, experience, education, gender, age, strengths, job_hunting_status,
             expected_position, internship_experience, project_experience,
             competition_experience, campus_experience, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
           [
             req.user.id,
             fullName || '',
@@ -245,6 +255,7 @@ router.put('/me', authenticate, async (req, res) => {
             gender || '',
             age ? Number(age) : null,
             strengths || '',
+            jobHuntingStatus || '考虑机会',
             expectedPosition || '',
             internshipExperience || '',
             projectExperience || '',
@@ -299,20 +310,54 @@ router.post('/register-identity', authenticate, async (req, res) => {
           now
         ]
       );
+
+      const companyExisted = await get('SELECT id FROM companies WHERE user_id = ?', [req.user.id]);
+      if (companyExisted) {
+        await run(
+          `UPDATE companies
+           SET name = ?, intro = ?, address = ?, company_size = ?, updated_at = ?
+           WHERE user_id = ?`,
+          [
+            recruiterProfile.companyName,
+            recruiterProfile.companyIntro || '',
+            recruiterProfile.companyAddress,
+            recruiterProfile.companySize,
+            now,
+            req.user.id
+          ]
+        );
+      } else {
+        await run(
+          `INSERT INTO companies (user_id, name, intro, website, address, company_size, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            req.user.id,
+            recruiterProfile.companyName,
+            recruiterProfile.companyIntro || '',
+            '',
+            recruiterProfile.companyAddress,
+            recruiterProfile.companySize,
+            now
+          ]
+        );
+      }
     }
 
     if (identity === 'jobseeker') {
-      if (!jobseekerProfile.fullName || !jobseekerProfile.age || !jobseekerProfile.gender || !jobseekerProfile.strengths) {
-        return res.status(400).json({ message: '求职者身份需要姓名、年龄、性别和个人优势' });
+      if (!jobseekerProfile.fullName || !jobseekerProfile.age || !jobseekerProfile.gender || !jobseekerProfile.strengths || !jobseekerProfile.jobHuntingStatus) {
+        return res.status(400).json({ message: '求职者身份需要姓名、年龄、性别、个人优势和求职状态' });
+      }
+      if (!JOB_HUNTING_STATUS.includes(jobseekerProfile.jobHuntingStatus)) {
+        return res.status(400).json({ message: '求职状态不合法' });
       }
 
       await run(
         `INSERT INTO identity_profiles (
           user_id, identity, avatar_url, common_phrase,
-          full_name, age, gender, strengths, expected_position,
+          full_name, age, gender, strengths, job_hunting_status, expected_position,
           internship_experience, project_experience, competition_experience,
           campus_experience, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
         [
           req.user.id,
           'jobseeker',
@@ -322,6 +367,7 @@ router.post('/register-identity', authenticate, async (req, res) => {
           Number(jobseekerProfile.age),
           jobseekerProfile.gender,
           jobseekerProfile.strengths,
+          jobseekerProfile.jobHuntingStatus,
           jobseekerProfile.expectedPosition || '',
           jobseekerProfile.internshipExperience || '',
           jobseekerProfile.projectExperience || '',
@@ -330,6 +376,56 @@ router.post('/register-identity', authenticate, async (req, res) => {
           now
         ]
       );
+
+      const resumeExisted = await get('SELECT id FROM resumes WHERE user_id = ?', [req.user.id]);
+      if (resumeExisted) {
+        await run(
+          `UPDATE resumes
+           SET full_name = ?, age = ?, gender = ?, strengths = ?, job_hunting_status = ?, expected_position = ?,
+               internship_experience = ?, project_experience = ?, competition_experience = ?,
+               campus_experience = ?, updated_at = ?
+           WHERE user_id = ?`,
+          [
+            jobseekerProfile.fullName,
+            Number(jobseekerProfile.age),
+            jobseekerProfile.gender,
+            jobseekerProfile.strengths,
+            jobseekerProfile.jobHuntingStatus,
+            jobseekerProfile.expectedPosition || '',
+            jobseekerProfile.internshipExperience || '',
+            jobseekerProfile.projectExperience || '',
+            jobseekerProfile.competitionExperience || '',
+            jobseekerProfile.campusExperience || '',
+            now,
+            req.user.id
+          ]
+        );
+      } else {
+        await run(
+          `INSERT INTO resumes (
+            user_id, full_name, skills, experience, education, gender, age, strengths, job_hunting_status,
+            expected_position, internship_experience, project_experience,
+            competition_experience, campus_experience, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+          [
+            req.user.id,
+            jobseekerProfile.fullName,
+            '',
+            jobseekerProfile.internshipExperience || '',
+            '',
+            jobseekerProfile.gender,
+            Number(jobseekerProfile.age),
+            jobseekerProfile.strengths,
+            jobseekerProfile.jobHuntingStatus,
+            jobseekerProfile.expectedPosition || '',
+            jobseekerProfile.internshipExperience || '',
+            jobseekerProfile.projectExperience || '',
+            jobseekerProfile.competitionExperience || '',
+            jobseekerProfile.campusExperience || '',
+            now
+          ]
+        );
+      }
     }
 
     const nextIdentities = [...identities, identity];

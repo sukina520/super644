@@ -170,6 +170,22 @@ router.post('/', authenticate, requireIdentity(['recruiter']), async (req, res) 
     } = req.body;
     const publishAt = new Date().toISOString().slice(0, 10);
 
+    const duplicate = await get(
+      `SELECT id FROM jobs
+       WHERE recruiter_user_id = ?
+         AND title = ?
+         AND company = ?
+         AND city = ?
+         AND category_l1 = ?
+         AND category_l2 = ?
+       LIMIT 1`,
+      [req.user.id, title, company, city, categoryL1, categoryL2]
+    );
+
+    if (duplicate) {
+      return res.status(409).json({ message: '检测到重复岗位（名称、公司、城市、外层分类、内层岗位一致），请勿重复发布' });
+    }
+
     const insert = await run(
       `INSERT INTO jobs (
         title, company, city, salary_range, education_requirement,
@@ -260,6 +276,7 @@ router.post('/:id/apply', authenticate, requireIdentity(['jobseeker']), async (r
     const commonPhrase = commonPhraseRow?.common_phrase || '';
 
     const snapshotProfile = {
+      userId: req.user.id,
       fullName: profile?.full_name || req.user.username,
       age: profile?.age || null,
       gender: profile?.gender || '',

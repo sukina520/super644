@@ -22,7 +22,19 @@
         <template v-if="authStore.activeIdentity === 'jobseeker'">
           <input v-model.trim="form.fullName" placeholder="姓名" />
           <input v-model.number="form.age" placeholder="年龄" />
-          <input v-model.trim="form.gender" placeholder="性别" />
+          <label>
+            性别
+            <div class="radio-row">
+              <label><input v-model="form.gender" type="radio" value="男" /> 男</label>
+              <label><input v-model="form.gender" type="radio" value="女" /> 女</label>
+            </div>
+          </label>
+          <label>
+            求职状态
+            <select v-model="form.jobHuntingStatus">
+              <option v-for="item in jobHuntingStatusOptions" :key="item" :value="item">{{ item }}</option>
+            </select>
+          </label>
           <input v-model.trim="form.strengths" placeholder="个人优势" />
           <input v-model.trim="form.expectedPosition" placeholder="期望岗位" />
           <textarea v-model.trim="form.internshipExperience" placeholder="实习经历" />
@@ -58,6 +70,7 @@ import { useAuthStore } from '../stores/auth';
 const router = useRouter();
 const authStore = useAuthStore();
 const tip = ref('');
+const jobHuntingStatusOptions = ['随时到岗', '月内到岗', '考虑机会', '暂不考虑'];
 
 const form = reactive({
   nickname: '',
@@ -69,8 +82,9 @@ const form = reactive({
   companyIntro: '',
   fullName: '',
   age: null,
-  gender: '',
+  gender: '男',
   strengths: '',
+  jobHuntingStatus: '考虑机会',
   expectedPosition: '',
   internshipExperience: '',
   projectExperience: '',
@@ -112,8 +126,9 @@ async function loadProfile() {
     companyIntro: data.profile?.company_intro || '',
     fullName: data.profile?.full_name || '',
     age: data.profile?.age || null,
-    gender: data.profile?.gender || '',
+    gender: data.profile?.gender || '男',
     strengths: data.profile?.strengths || '',
+    jobHuntingStatus: data.profile?.job_hunting_status || '考虑机会',
     expectedPosition: data.profile?.expected_position || '',
     internshipExperience: data.profile?.internship_experience || '',
     projectExperience: data.profile?.project_experience || '',
@@ -179,6 +194,12 @@ onMounted(loadProfile);
   border-radius: 50%;
   object-fit: cover;
   border: 1px solid #cfe0ff;
+}
+
+.radio-row {
+  display: flex;
+  gap: 14px;
+  margin-top: 6px;
 }
 
 .tip {

@@ -9,6 +9,7 @@
         </div>
       </div>
       <p class="line">优势：{{ seeker.strengths || '未填写' }}</p>
+      <p class="line">求职状态：{{ seeker.jobHuntingStatus || '考虑机会' }}</p>
       <p class="line">期望岗位：{{ seeker.expectedPosition || '未填写' }}</p>
       <p class="line" v-if="showExperience">经历：{{ seeker.experience || seeker.internshipExperience || '未填写' }}</p>
       <slot />

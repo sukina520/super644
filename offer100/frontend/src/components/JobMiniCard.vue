@@ -5,8 +5,9 @@
       <p class="meta">{{ job.company }} | {{ job.city }}</p>
       <p class="salary">{{ job.salaryRange }}</p>
       <p class="meta">学历：{{ job.educationRequirement || '无限制' }}</p>
-      <div class="tags" v-if="Array.isArray(job.tags) && job.tags.length > 0">
-        <el-tag v-for="tag in job.tags.slice(0, 3)" :key="`${job.id}-${tag}`" size="small" effect="plain">{{ tag }}</el-tag>
+      <div class="tags" v-if="job.categoryL1 || job.categoryL2">
+        <el-tag v-if="job.categoryL1" size="small" effect="plain">{{ job.categoryL1 }}</el-tag>
+        <el-tag v-if="job.categoryL2" size="small" effect="plain">{{ job.categoryL2 }}</el-tag>
       </div>
       <p class="desc" v-if="showDescription">{{ job.description || '暂无岗位描述' }}</p>
     </router-link>
@@ -55,4 +56,6 @@ h3 {
   gap: 6px;
   margin-top: 8px;
 }
+
+
 </style>

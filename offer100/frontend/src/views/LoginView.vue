@@ -50,7 +50,19 @@
             <h3>求职者基础信息</h3>
             <input v-model.trim="registerForm.jobseekerProfile.fullName" placeholder="姓名" required />
             <input v-model.number="registerForm.jobseekerProfile.age" placeholder="年龄" required />
-            <input v-model.trim="registerForm.jobseekerProfile.gender" placeholder="性别" required />
+            <label>
+              性别
+              <div class="radio-row">
+                <label><input v-model="registerForm.jobseekerProfile.gender" type="radio" value="男" required /> 男</label>
+                <label><input v-model="registerForm.jobseekerProfile.gender" type="radio" value="女" required /> 女</label>
+              </div>
+            </label>
+            <label>
+              求职状态
+              <select v-model="registerForm.jobseekerProfile.jobHuntingStatus" required>
+                <option v-for="item in jobHuntingStatusOptions" :key="item" :value="item">{{ item }}</option>
+              </select>
+            </label>
             <input
               v-model.trim="registerForm.jobseekerProfile.strengths"
               placeholder="个人优势"
@@ -124,6 +136,7 @@ const mode = ref('login');
 const loading = ref(false);
 const error = ref('');
 const tip = ref('');
+const jobHuntingStatusOptions = ['随时到岗', '月内到岗', '考虑机会', '暂不考虑'];
 
 const loginForm = reactive({
   username: 'studentA',
@@ -145,8 +158,9 @@ const registerForm = reactive({
   jobseekerProfile: {
     fullName: '',
     age: 22,
-    gender: '',
+    gender: '男',
     strengths: '',
+    jobHuntingStatus: '考虑机会',
     expectedPosition: '',
     internshipExperience: '',
     projectExperience: '',
@@ -238,6 +252,12 @@ async function submitRegister() {
 .line-label {
   text-align: right;
   color: #334155;
+}
+
+.radio-row {
+  display: flex;
+  gap: 14px;
+  margin-top: 6px;
 }
 
 .tip {

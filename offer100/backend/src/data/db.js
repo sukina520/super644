@@ -134,39 +134,39 @@ async function seedJobs() {
 
   const jobs = [
     {
-      title: 'Vue Frontend Engineer',
-      company: 'TechNova',
-      city: 'Shanghai',
+      title: '前端开发工程师',
+      company: '校园科技',
+      city: '上海',
       salaryRange: '12k-18k',
       educationRequirement: '本科',
       categoryL1: '互联网 / AI',
       categoryL2: '前端开发（Vue / React）',
       tags: ['vue', 'javascript', 'frontend'],
-      description: 'Develop and optimize enterprise SPA applications.',
+      description: '负责企业级 Web 前端开发。',
       publishAt: '2026-03-01'
     },
     {
-      title: 'Node.js Backend Engineer',
-      company: 'CloudRiver',
-      city: 'Hangzhou',
+      title: '后端开发工程师',
+      company: '云川科技',
+      city: '杭州',
       salaryRange: '15k-22k',
       educationRequirement: '双一流',
       categoryL1: '互联网 / AI',
       categoryL2: '后端开发（Java / Go / Python）',
       tags: ['nodejs', 'express', 'api'],
-      description: 'Build scalable backend services and APIs.',
+      description: '负责高并发后端服务与接口开发。',
       publishAt: '2026-03-03'
     },
     {
-      title: 'Product Operations Specialist',
-      company: 'GrowthLab',
-      city: 'Shenzhen',
+      title: '产品运营专员',
+      company: '增长实验室',
+      city: '深圳',
       salaryRange: '9k-14k',
       educationRequirement: '无限制',
       categoryL1: '产品',
       categoryL2: '增长产品经理',
       tags: ['operations', 'analysis'],
-      description: 'Coordinate campaigns and optimize user conversion.',
+      description: '负责活动运营与用户增长转化。',
       publishAt: '2026-03-05'
     }
   ];
@@ -247,13 +247,14 @@ async function seedResumes() {
       gender,
       age,
       strengths,
+      job_hunting_status,
       expected_position,
       internship_experience,
       project_experience,
       competition_experience,
       campus_experience,
       updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       2,
       'Student A',
@@ -263,6 +264,7 @@ async function seedResumes() {
       '女',
       22,
       '上手快，沟通顺畅，执行力强',
+      '考虑机会',
       '前端开发工程师',
       '在互联网公司实习3个月',
       '校园招聘系统、二手交易平台',
@@ -282,13 +284,14 @@ async function seedResumes() {
       age,
       gender,
       strengths,
+      job_hunting_status,
       expected_position,
       internship_experience,
       project_experience,
       competition_experience,
       campus_experience,
       updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       2,
       'jobseeker',
@@ -298,6 +301,7 @@ async function seedResumes() {
       22,
       '女',
       '上手快，沟通顺畅，执行力强',
+      '考虑机会',
       '前端开发工程师',
       '在互联网公司实习3个月',
       '校园招聘系统、二手交易平台',
@@ -404,6 +408,7 @@ async function initDb() {
       gender TEXT,
       age INTEGER,
       strengths TEXT,
+      job_hunting_status TEXT,
       expected_position TEXT,
       internship_experience TEXT,
       project_experience TEXT,
@@ -466,6 +471,7 @@ async function initDb() {
       age INTEGER,
       gender TEXT,
       strengths TEXT,
+      job_hunting_status TEXT,
       expected_position TEXT,
       internship_experience TEXT,
       project_experience TEXT,
@@ -487,6 +493,7 @@ async function initDb() {
   await ensureColumn('resumes', 'gender', 'TEXT');
   await ensureColumn('resumes', 'age', 'INTEGER');
   await ensureColumn('resumes', 'strengths', 'TEXT');
+  await ensureColumn('resumes', 'job_hunting_status', 'TEXT');
   await ensureColumn('resumes', 'expected_position', 'TEXT');
   await ensureColumn('resumes', 'internship_experience', 'TEXT');
   await ensureColumn('resumes', 'project_experience', 'TEXT');
@@ -503,6 +510,7 @@ async function initDb() {
   await ensureColumn('messages', 'message_type', "TEXT DEFAULT 'text'");
   await ensureColumn('messages', 'payload_json', 'TEXT');
   await ensureColumn('messages', 'is_read', 'INTEGER DEFAULT 0');
+  await ensureColumn('identity_profiles', 'job_hunting_status', 'TEXT');
 
   await run(
     `UPDATE jobs
@@ -551,6 +559,18 @@ async function initDb() {
      SET created_at = COALESCE(created_at, ?)
      WHERE created_at IS NULL OR created_at = ''`,
     [new Date().toISOString()]
+  );
+
+  await run(
+    `UPDATE resumes
+     SET job_hunting_status = COALESCE(job_hunting_status, '考虑机会')
+     WHERE job_hunting_status IS NULL OR job_hunting_status = ''`
+  );
+
+  await run(
+    `UPDATE identity_profiles
+     SET job_hunting_status = COALESCE(job_hunting_status, '考虑机会')
+     WHERE identity = 'jobseeker' AND (job_hunting_status IS NULL OR job_hunting_status = '')`
   );
 
   await seedUsers();
