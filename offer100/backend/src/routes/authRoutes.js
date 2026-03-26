@@ -62,7 +62,7 @@ router.post('/register', async (req, res) => {
 
     const identities = normalizeIdentities(initialIdentity);
     const role = initialIdentity;
-    const now = new Date().toISOString();
+    const now = new Date();
 
     const created = await run(
       `INSERT INTO users (

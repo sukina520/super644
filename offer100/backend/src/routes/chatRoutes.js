@@ -7,7 +7,7 @@ const { emitRecruitmentUpdate } = require('../modules/socketHub');
 const router = express.Router();
 
 async function saveMessage({ fromUserId, toUserId, content, messageType = 'text', payload = null }) {
-  const now = new Date().toISOString();
+  const now = new Date();
   const result = await run(
     `INSERT INTO messages (from_user_id, to_user_id, content, message_type, payload_json, is_read, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -390,7 +390,7 @@ router.post('/contacts/:contactId/pin', authenticate, async (req, res) => {
     } else {
       await run(
         'INSERT INTO user_contacts (user_id, contact_user_id, is_pinned, is_deleted, created_at) VALUES (?, ?, 1, 0, ?)',
-        [req.user.id, contactId, new Date().toISOString()]
+        [req.user.id, contactId, new Date()]
       );
     }
 
@@ -421,7 +421,7 @@ router.post('/contacts/:contactId/unpin', authenticate, async (req, res) => {
     } else {
       await run(
         'INSERT INTO user_contacts (user_id, contact_user_id, is_pinned, is_deleted, created_at) VALUES (?, ?, 0, 0, ?)',
-        [req.user.id, contactId, new Date().toISOString()]
+        [req.user.id, contactId, new Date()]
       );
     }
 
@@ -459,7 +459,7 @@ router.post('/contacts/:contactId/delete', authenticate, async (req, res) => {
     } else {
       await run(
         'INSERT INTO user_contacts (user_id, contact_user_id, is_pinned, is_deleted, created_at) VALUES (?, ?, 0, 1, ?)',
-        [req.user.id, contactId, new Date().toISOString()]
+        [req.user.id, contactId, new Date()]
       );
     }
 
@@ -490,7 +490,7 @@ router.post('/contacts/:contactId/restore', authenticate, async (req, res) => {
     } else {
       await run(
         'INSERT INTO user_contacts (user_id, contact_user_id, is_pinned, is_deleted, created_at) VALUES (?, ?, 0, 0, ?)',
-        [req.user.id, contactId, new Date().toISOString()]
+        [req.user.id, contactId, new Date()]
       );
     }
 

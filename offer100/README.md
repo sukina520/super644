@@ -3,7 +3,7 @@
 ## 1. 项目简介
 Offer100 面向大学生与社会求职者，提供招聘岗位、企业动态、人才需求统计与就业指导服务。
 
-后端数据库：SQLite（文件库，便于本地快速启动）
+后端数据库：MySQL 8.x
 
 当前版本实现：
 - 同账号双身份切换（recruiter / jobseeker）
@@ -56,6 +56,13 @@ npm run dev
 
 默认端口：`3001`
 
+默认数据库连接（可用环境变量覆盖）：
+- `DB_HOST`：`127.0.0.1`
+- `DB_PORT`：`3306`
+- `DB_USER`：`root`
+- `DB_PASSWORD`：`123456`
+- `DB_NAME`：`offer100`
+
 ### 4.2 启动前端
 
 ```bash
@@ -67,7 +74,7 @@ npm run dev
 默认端口：`5173`
 
 ## 5. 测试账号
-- admin / 123456
+- adminzsb / 123456
 - studentA / 123456
 - socialUser / 123456
 
@@ -100,4 +107,4 @@ npm run dev
 - `POST /api/ai/job-match-score`：对职位进行匹配度评分
 
 ## 9. 说明
-该版本使用 SQLite 文件数据库，便于课程演示和功能联调。后续可替换为 MySQL/PostgreSQL，并接入 Redis、消息队列与更完整的报表系统（如 FreeReportBuilder 或替代方案）。
+该版本使用 MySQL 数据库，便于团队协作与部署。后续可接入 Redis、消息队列与更完整的报表系统（如 FreeReportBuilder 或替代方案）。

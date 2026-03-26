@@ -1,46 +1,62 @@
-const path = require('path');
-const sqlite3 = require('sqlite3').verbose();
+require('dotenv').config();
+const mysql = require('mysql2/promise');
 
-const dbPath = path.join(__dirname, '../../offer100.sqlite');
-const db = new sqlite3.Database(dbPath);
-const DEFAULT_COMMON_PHRASE_JOBSEEKER = '你好，我对贵公司的该岗位很感兴趣，想跟您详细聊聊';
-const DEFAULT_COMMON_PHRASE_RECRUITER = '你好，我发现你的简历十分合适这份岗位，有兴趣聊聊吗';
+const dbConfig = {
+  host: process.env.DB_HOST || '127.0.0.1',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '123456',
+  database: process.env.DB_NAME || 'offer100',
+  port: Number(process.env.DB_PORT || 3306)
+};
+
+let pool;
+
+function getPool() {
+  if (!pool) {
+    pool = mysql.createPool({
+      ...dbConfig,
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+      dateStrings: true
+    });
+  }
+  return pool;
+}
+
+async function ensureDatabase() {
+  const connection = await mysql.createConnection({
+    host: dbConfig.host,
+    user: dbConfig.user,
+    password: dbConfig.password,
+    port: dbConfig.port
+  });
+  await connection.query(
+    `CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+  );
+  await connection.end();
+}
 
 function run(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function onRun(error) {
-      if (error) {
-        reject(error);
-        return;
-      }
-      resolve({ lastID: this.lastID, changes: this.changes });
-    });
-  });
+  return getPool()
+    .execute(sql, params)
+    .then(([result]) => ({ lastID: result.insertId, changes: result.affectedRows }));
 }
 
 function get(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (error, row) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-      resolve(row);
-    });
-  });
+  return getPool()
+    .execute(sql, params)
+    .then(([rows]) => rows[0]);
 }
 
 function all(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (error, rows) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-      resolve(rows);
-    });
-  });
+  return getPool()
+    .execute(sql, params)
+    .then(([rows]) => rows);
 }
+
+const DEFAULT_COMMON_PHRASE_JOBSEEKER = '你好，我对贵公司的该岗位很感兴趣，想跟您详细聊聊';
+const DEFAULT_COMMON_PHRASE_RECRUITER = '你好，我发现你的简历十分合适这份岗位，有兴趣聊聊吗';
 
 function safeJsonParse(value, fallback) {
   if (!value) {
@@ -54,11 +70,26 @@ function safeJsonParse(value, fallback) {
 }
 
 async function ensureColumn(tableName, columnName, columnDef) {
-  const cols = await all(`PRAGMA table_info(${tableName})`);
-  const exists = cols.some((col) => col.name === columnName);
-  if (!exists) {
-    await run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDef}`);
+  const row = await get(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = ?
+       AND COLUMN_NAME = ?`,
+    [tableName, columnName]
+  );
+  if (!row || row.count === 0) {
+    await run(`ALTER TABLE \`${tableName}\` ADD COLUMN \`${columnName}\` ${columnDef}`);
   }
+}
+
+async function normalizeDatetime(tableName, columnName, fallback) {
+  await run(
+    `UPDATE \`${tableName}\`
+     SET \`${columnName}\` = COALESCE(\`${columnName}\`, ?)
+     WHERE \`${columnName}\` IS NULL`,
+    [fallback]
+  );
 }
 
 async function seedUsers() {
@@ -137,7 +168,7 @@ async function seedUsers() {
         user.identities,
         user.initialIdentity,
         user.status || 'active',
-        new Date().toISOString()
+        new Date()
       ]
     );
   }
@@ -228,7 +259,7 @@ async function seedCompanies() {
   if (row.count > 0) {
     return;
   }
-  const now = new Date().toISOString();
+  const now = new Date();
   await run(
     'INSERT INTO companies (user_id, name, intro, website, address, company_size, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
     [1, 'TechNova', 'Focus on campus hiring and frontend products.', 'https://technova.example', '上海浦东', '100-499', now]
@@ -265,7 +296,7 @@ async function seedResumes() {
   if (row.count > 0) {
     return;
   }
-  const now = new Date().toISOString();
+  const now = new Date();
   await run(
     `INSERT INTO resumes (
       user_id,
@@ -343,7 +374,7 @@ async function seedResumes() {
 
 async function backfillIdentityProfiles() {
   const users = await all('SELECT id, identities, initial_identity FROM users');
-  const now = new Date().toISOString();
+  const now = new Date();
   for (const user of users) {
     const identities = safeJsonParse(user.identities, ['jobseeker']);
     const initialIdentity = identities.includes(user.initial_identity)
@@ -374,262 +405,289 @@ async function backfillIdentityProfiles() {
 }
 
 async function initDb() {
+  await ensureDatabase();
+
   await run(
     `CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL UNIQUE,
-      password TEXT NOT NULL,
-      nickname TEXT,
-      role TEXT NOT NULL,
-      major TEXT,
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      username VARCHAR(100) NOT NULL UNIQUE,
+      password VARCHAR(100) NOT NULL,
+      nickname VARCHAR(100),
+      role VARCHAR(50) NOT NULL,
+      major VARCHAR(200),
       preference_tags TEXT,
       identities TEXT,
-      initial_identity TEXT,
-      created_at TEXT
-    )`
+      initial_identity VARCHAR(50),
+      status VARCHAR(20) DEFAULT 'active',
+      created_at DATETIME
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
 
   await run(
     `CREATE TABLE IF NOT EXISTS jobs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
-      company TEXT NOT NULL,
-      city TEXT NOT NULL,
-      salary_range TEXT NOT NULL,
-      employment_type TEXT,
-      company_size TEXT,
-      experience_requirement TEXT,
-      education_requirement TEXT,
-      category_l1 TEXT,
-      category_l2 TEXT,
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(200) NOT NULL,
+      company VARCHAR(200) NOT NULL,
+      city VARCHAR(100) NOT NULL,
+      salary_range VARCHAR(50) NOT NULL,
+      employment_type VARCHAR(50),
+      company_size VARCHAR(50),
+      experience_requirement VARCHAR(50),
+      education_requirement VARCHAR(50),
+      category_l1 VARCHAR(200),
+      category_l2 VARCHAR(200),
       tags TEXT,
       description TEXT,
-      publish_at TEXT,
-      recruiter_user_id INTEGER
-    )`
+      publish_at VARCHAR(20),
+      recruiter_user_id INT
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
 
   await run(
     `CREATE TABLE IF NOT EXISTS behavior_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      role TEXT NOT NULL,
-      action TEXT NOT NULL,
-      target_type TEXT NOT NULL,
-      target_id INTEGER,
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      role VARCHAR(50) NOT NULL,
+      action VARCHAR(100) NOT NULL,
+      target_type VARCHAR(100) NOT NULL,
+      target_id INT,
       extra TEXT,
-      created_at TEXT NOT NULL
-    )`
+      created_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
 
   await run(
     `CREATE TABLE IF NOT EXISTS companies (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL UNIQUE,
-      name TEXT NOT NULL,
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL UNIQUE,
+      name VARCHAR(200) NOT NULL,
       intro TEXT,
-      website TEXT,
-      address TEXT,
-      company_size TEXT,
-      updated_at TEXT NOT NULL
-    )`
+      website VARCHAR(200),
+      address VARCHAR(200),
+      company_size VARCHAR(50),
+      updated_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
 
   await run(
     `CREATE TABLE IF NOT EXISTS resumes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL UNIQUE,
-      full_name TEXT NOT NULL,
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL UNIQUE,
+      full_name VARCHAR(200) NOT NULL,
       skills TEXT,
       experience TEXT,
       education TEXT,
-      expected_salary TEXT,
-      school TEXT,
-      major TEXT,
-      degree TEXT,
-      graduation_cohort TEXT,
+      expected_salary VARCHAR(100),
+      school VARCHAR(200),
+      major VARCHAR(200),
+      degree VARCHAR(100),
+      graduation_cohort VARCHAR(50),
       work_experience TEXT,
-      location TEXT,
-      contact_phone TEXT,
-      contact_email TEXT,
-      gender TEXT,
-      age INTEGER,
+      location VARCHAR(100),
+      contact_phone VARCHAR(50),
+      contact_email VARCHAR(100),
+      gender VARCHAR(20),
+      age INT,
       strengths TEXT,
-      job_hunting_status TEXT,
-      expected_job_type TEXT,
-      expected_position TEXT,
+      job_hunting_status VARCHAR(50),
+      expected_job_type VARCHAR(50),
+      expected_position VARCHAR(100),
       internship_experience TEXT,
       project_experience TEXT,
       competition_experience TEXT,
       campus_experience TEXT,
-      updated_at TEXT NOT NULL
-    )`
+      updated_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
 
   await run(
     `CREATE TABLE IF NOT EXISTS applications (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      job_id INTEGER NOT NULL,
-      seeker_user_id INTEGER NOT NULL,
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      job_id INT NOT NULL,
+      seeker_user_id INT NOT NULL,
       message TEXT,
-      status TEXT DEFAULT 'pending',
+      status VARCHAR(30) DEFAULT 'pending',
       snapshot_profile TEXT,
-      created_at TEXT NOT NULL
-    )`
+      created_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
 
   await run(
     `CREATE TABLE IF NOT EXISTS invitations (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      recruiter_user_id INTEGER NOT NULL,
-      seeker_user_id INTEGER NOT NULL,
-      job_id INTEGER NOT NULL,
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      recruiter_user_id INT NOT NULL,
+      seeker_user_id INT NOT NULL,
+      job_id INT NOT NULL,
       message TEXT,
-      status TEXT DEFAULT 'sent',
+      status VARCHAR(30) DEFAULT 'sent',
       snapshot_job TEXT,
-      created_at TEXT NOT NULL
-    )`
+      created_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
 
   await run(
     `CREATE TABLE IF NOT EXISTS messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      from_user_id INTEGER NOT NULL,
-      to_user_id INTEGER NOT NULL,
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      from_user_id INT NOT NULL,
+      to_user_id INT NOT NULL,
       content TEXT NOT NULL,
-      message_type TEXT DEFAULT 'text',
+      message_type VARCHAR(30) DEFAULT 'text',
       payload_json TEXT,
-      is_read INTEGER DEFAULT 0,
-      created_at TEXT NOT NULL
-    )`
+      is_read TINYINT DEFAULT 0,
+      created_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
 
   await run(
     `CREATE TABLE IF NOT EXISTS identity_profiles (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      identity TEXT NOT NULL,
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      identity VARCHAR(50) NOT NULL,
       avatar_url TEXT,
       common_phrase TEXT,
-      company_name TEXT,
-      company_address TEXT,
-      company_size TEXT,
+      company_name VARCHAR(200),
+      company_address VARCHAR(200),
+      company_size VARCHAR(50),
       company_intro TEXT,
-      full_name TEXT,
-      age INTEGER,
-      gender TEXT,
+      full_name VARCHAR(200),
+      age INT,
+      gender VARCHAR(20),
       strengths TEXT,
-      expected_salary TEXT,
-      school TEXT,
-      major TEXT,
-      degree TEXT,
-      graduation_cohort TEXT,
+      expected_salary VARCHAR(100),
+      school VARCHAR(200),
+      major VARCHAR(200),
+      degree VARCHAR(100),
+      graduation_cohort VARCHAR(50),
       work_experience TEXT,
-      location TEXT,
-      contact_phone TEXT,
-      contact_email TEXT,
-      job_hunting_status TEXT,
-      expected_job_type TEXT,
-      expected_position TEXT,
+      location VARCHAR(100),
+      contact_phone VARCHAR(50),
+      contact_email VARCHAR(100),
+      job_hunting_status VARCHAR(50),
+      expected_job_type VARCHAR(50),
+      expected_position VARCHAR(100),
       internship_experience TEXT,
       project_experience TEXT,
       competition_experience TEXT,
       campus_experience TEXT,
-      updated_at TEXT NOT NULL,
-      UNIQUE(user_id, identity)
-    )`
+      updated_at DATETIME NOT NULL,
+      UNIQUE KEY uniq_identity (user_id, identity)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
 
-  await ensureColumn('users', 'nickname', 'TEXT');
+  await run(
+    `CREATE TABLE IF NOT EXISTS user_contacts (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      contact_user_id INT NOT NULL,
+      is_pinned TINYINT DEFAULT 0,
+      is_deleted TINYINT DEFAULT 0,
+      last_message_at DATETIME,
+      created_at DATETIME NOT NULL,
+      UNIQUE KEY uniq_contact (user_id, contact_user_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
+
+  await ensureColumn('users', 'nickname', 'VARCHAR(100)');
   await ensureColumn('users', 'identities', 'TEXT');
-  await ensureColumn('users', 'initial_identity', 'TEXT');
-  await ensureColumn('users', 'created_at', 'TEXT');
-  await ensureColumn('users', 'status', "TEXT DEFAULT 'active'");
-  await ensureColumn('users', 'role', 'TEXT');
+  await ensureColumn('users', 'initial_identity', 'VARCHAR(50)');
+  await ensureColumn('users', 'created_at', 'DATETIME');
+  await ensureColumn('users', 'status', "VARCHAR(20) DEFAULT 'active'");
+  await ensureColumn('users', 'role', 'VARCHAR(50)');
 
-  await ensureColumn('companies', 'address', 'TEXT');
-  await ensureColumn('companies', 'company_size', 'TEXT');
+  await ensureColumn('companies', 'address', 'VARCHAR(200)');
+  await ensureColumn('companies', 'company_size', 'VARCHAR(50)');
 
-  await ensureColumn('resumes', 'gender', 'TEXT');
-  await ensureColumn('resumes', 'age', 'INTEGER');
+  await ensureColumn('resumes', 'gender', 'VARCHAR(20)');
+  await ensureColumn('resumes', 'age', 'INT');
   await ensureColumn('resumes', 'strengths', 'TEXT');
-  await ensureColumn('resumes', 'expected_salary', 'TEXT');
-  await ensureColumn('resumes', 'school', 'TEXT');
-  await ensureColumn('resumes', 'major', 'TEXT');
-  await ensureColumn('resumes', 'degree', 'TEXT');
-  await ensureColumn('resumes', 'graduation_cohort', 'TEXT');
+  await ensureColumn('resumes', 'expected_salary', 'VARCHAR(100)');
+  await ensureColumn('resumes', 'school', 'VARCHAR(200)');
+  await ensureColumn('resumes', 'major', 'VARCHAR(200)');
+  await ensureColumn('resumes', 'degree', 'VARCHAR(100)');
+  await ensureColumn('resumes', 'graduation_cohort', 'VARCHAR(50)');
   await ensureColumn('resumes', 'work_experience', 'TEXT');
-  await ensureColumn('resumes', 'location', 'TEXT');
-  await ensureColumn('resumes', 'contact_phone', 'TEXT');
-  await ensureColumn('resumes', 'contact_email', 'TEXT');
-  await ensureColumn('resumes', 'job_hunting_status', 'TEXT');
-  await ensureColumn('resumes', 'expected_job_type', 'TEXT');
-  await ensureColumn('resumes', 'expected_position', 'TEXT');
+  await ensureColumn('resumes', 'location', 'VARCHAR(100)');
+  await ensureColumn('resumes', 'contact_phone', 'VARCHAR(50)');
+  await ensureColumn('resumes', 'contact_email', 'VARCHAR(100)');
+  await ensureColumn('resumes', 'job_hunting_status', 'VARCHAR(50)');
+  await ensureColumn('resumes', 'expected_job_type', 'VARCHAR(50)');
+  await ensureColumn('resumes', 'expected_position', 'VARCHAR(100)');
   await ensureColumn('resumes', 'internship_experience', 'TEXT');
   await ensureColumn('resumes', 'project_experience', 'TEXT');
   await ensureColumn('resumes', 'competition_experience', 'TEXT');
   await ensureColumn('resumes', 'campus_experience', 'TEXT');
 
-  await ensureColumn('jobs', 'recruiter_user_id', 'INTEGER');
-  await ensureColumn('jobs', 'employment_type', 'TEXT');
-  await ensureColumn('jobs', 'company_size', 'TEXT');
-  await ensureColumn('jobs', 'experience_requirement', 'TEXT');
-  await ensureColumn('jobs', 'education_requirement', 'TEXT');
-  await ensureColumn('jobs', 'category_l1', 'TEXT');
-  await ensureColumn('jobs', 'category_l2', 'TEXT');
+  await ensureColumn('jobs', 'recruiter_user_id', 'INT');
+  await ensureColumn('jobs', 'employment_type', 'VARCHAR(50)');
+  await ensureColumn('jobs', 'company_size', 'VARCHAR(50)');
+  await ensureColumn('jobs', 'experience_requirement', 'VARCHAR(50)');
+  await ensureColumn('jobs', 'education_requirement', 'VARCHAR(50)');
+  await ensureColumn('jobs', 'category_l1', 'VARCHAR(200)');
+  await ensureColumn('jobs', 'category_l2', 'VARCHAR(200)');
   await ensureColumn('applications', 'message', 'TEXT');
-  await ensureColumn('applications', 'status', "TEXT DEFAULT 'pending'");
+  await ensureColumn('applications', 'status', "VARCHAR(30) DEFAULT 'pending'");
   await ensureColumn('applications', 'snapshot_profile', 'TEXT');
-  await ensureColumn('messages', 'message_type', "TEXT DEFAULT 'text'");
+  await ensureColumn('messages', 'message_type', "VARCHAR(30) DEFAULT 'text'");
   await ensureColumn('messages', 'payload_json', 'TEXT');
-  await ensureColumn('messages', 'is_read', 'INTEGER DEFAULT 0');
-  await ensureColumn('identity_profiles', 'expected_salary', 'TEXT');
-  await ensureColumn('identity_profiles', 'school', 'TEXT');
-  await ensureColumn('identity_profiles', 'major', 'TEXT');
-  await ensureColumn('identity_profiles', 'degree', 'TEXT');
-  await ensureColumn('identity_profiles', 'graduation_cohort', 'TEXT');
+  await ensureColumn('messages', 'is_read', 'TINYINT DEFAULT 0');
+  await ensureColumn('identity_profiles', 'expected_salary', 'VARCHAR(100)');
+  await ensureColumn('identity_profiles', 'school', 'VARCHAR(200)');
+  await ensureColumn('identity_profiles', 'major', 'VARCHAR(200)');
+  await ensureColumn('identity_profiles', 'degree', 'VARCHAR(100)');
+  await ensureColumn('identity_profiles', 'graduation_cohort', 'VARCHAR(50)');
   await ensureColumn('identity_profiles', 'work_experience', 'TEXT');
-  await ensureColumn('identity_profiles', 'location', 'TEXT');
-  await ensureColumn('identity_profiles', 'contact_phone', 'TEXT');
-  await ensureColumn('identity_profiles', 'contact_email', 'TEXT');
-  await ensureColumn('identity_profiles', 'job_hunting_status', 'TEXT');
-  await ensureColumn('identity_profiles', 'expected_job_type', 'TEXT');
+  await ensureColumn('identity_profiles', 'location', 'VARCHAR(100)');
+  await ensureColumn('identity_profiles', 'contact_phone', 'VARCHAR(50)');
+  await ensureColumn('identity_profiles', 'contact_email', 'VARCHAR(100)');
+  await ensureColumn('identity_profiles', 'job_hunting_status', 'VARCHAR(50)');
+  await ensureColumn('identity_profiles', 'expected_job_type', 'VARCHAR(50)');
+
+  const now = new Date();
+  await normalizeDatetime('users', 'created_at', now);
+  await normalizeDatetime('behavior_logs', 'created_at', now);
+  await normalizeDatetime('companies', 'updated_at', now);
+  await normalizeDatetime('resumes', 'updated_at', now);
+  await normalizeDatetime('applications', 'created_at', now);
+  await normalizeDatetime('invitations', 'created_at', now);
+  await normalizeDatetime('messages', 'created_at', now);
+  await normalizeDatetime('identity_profiles', 'updated_at', now);
+  await normalizeDatetime('user_contacts', 'created_at', now);
 
   await run(
-     `UPDATE jobs
+    `UPDATE jobs
       SET employment_type = COALESCE(employment_type, '不限')
       WHERE employment_type IS NULL OR employment_type = ''`
-    );
+  );
 
-    await run(
+  await run(
     `UPDATE jobs
      SET company_size = COALESCE(company_size, '不限')
      WHERE company_size IS NULL OR company_size = ''`
   );
 
   await run(
-     `UPDATE jobs
+    `UPDATE jobs
       SET experience_requirement = COALESCE(experience_requirement, '不限')
       WHERE experience_requirement IS NULL OR experience_requirement = ''`
-    );
+  );
 
-    await run(
+  await run(
     `UPDATE jobs
       SET education_requirement = COALESCE(education_requirement, '不限')
      WHERE education_requirement IS NULL OR education_requirement = ''`
   );
 
-    await run(
-     `UPDATE jobs
+  await run(
+    `UPDATE jobs
       SET experience_requirement = '不限'
       WHERE experience_requirement = '无限制'`
-    );
+  );
 
-    await run(
-     `UPDATE jobs
+  await run(
+    `UPDATE jobs
       SET education_requirement = '不限'
       WHERE education_requirement = '无限制'`
-    );
+  );
 
   await run(
     `UPDATE jobs
@@ -667,12 +725,7 @@ async function initDb() {
      WHERE nickname IS NULL OR nickname = ''`
   );
 
-  await run(
-    `UPDATE users
-     SET created_at = COALESCE(created_at, ?)
-     WHERE created_at IS NULL OR created_at = ''`,
-    [new Date().toISOString()]
-  );
+  // created_at 已在上方统一补全
 
   await run(
     `UPDATE resumes
@@ -725,21 +778,6 @@ async function initDb() {
   );
 
   await seedUsers();
-  
-  // 添加 user_contacts 表用于管理聊天列表的置顶和删除
-  await run(
-    `CREATE TABLE IF NOT EXISTS user_contacts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      contact_user_id INTEGER NOT NULL,
-      is_pinned INTEGER DEFAULT 0,
-      is_deleted INTEGER DEFAULT 0,
-      last_message_at TEXT,
-      created_at TEXT NOT NULL,
-      UNIQUE(user_id, contact_user_id)
-    )`
-  );
-
   await seedJobs();
   await seedCompanies();
   await seedResumes();
@@ -747,7 +785,7 @@ async function initDb() {
 }
 
 module.exports = {
-  dbPath,
+  dbConfig,
   run,
   get,
   all,

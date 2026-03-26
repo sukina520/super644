@@ -154,7 +154,7 @@ router.get('/me', authenticate, async (req, res) => {
 
 router.put('/me', authenticate, async (req, res) => {
   try {
-    const now = new Date().toISOString();
+    const now = new Date();
     const identity = req.user.activeIdentity;
     const {
       nickname,
@@ -425,7 +425,7 @@ router.post('/register-identity', authenticate, async (req, res) => {
       return res.status(409).json({ message: '该身份已注册' });
     }
 
-    const now = new Date().toISOString();
+    const now = new Date();
     if (identity === 'recruiter') {
       if (!recruiterProfile.companyName || !recruiterProfile.companyAddress || !recruiterProfile.companySize) {
         return res.status(400).json({ message: '招聘者身份需要公司名称、地址、规模' });

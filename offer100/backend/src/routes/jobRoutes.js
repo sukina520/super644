@@ -413,13 +413,13 @@ router.post('/', authenticate, requireIdentity(['recruiter']), async (req, res) 
         `UPDATE companies
          SET name = ?, address = ?, company_size = ?, intro = ?, updated_at = ?
          WHERE user_id = ?`,
-        [company, companyAddress || '', companySize || '不限', companyIntro || '', new Date().toISOString(), req.user.id]
+        [company, companyAddress || '', companySize || '不限', companyIntro || '', new Date(), req.user.id]
       );
     } else {
       await run(
         `INSERT INTO companies (user_id, name, intro, website, address, company_size, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [req.user.id, company, companyIntro || '', '', companyAddress || '', companySize || '不限', new Date().toISOString()]
+        [req.user.id, company, companyIntro || '', '', companyAddress || '', companySize || '不限', new Date()]
       );
     }
 
@@ -498,7 +498,7 @@ router.post('/:id/apply', authenticate, requireIdentity(['jobseeker']), async (r
         commonPhrase,
         'pending',
         JSON.stringify(snapshotProfile),
-        new Date().toISOString()
+        new Date()
       ]
     );
 
@@ -524,7 +524,7 @@ router.post('/:id/apply', authenticate, requireIdentity(['jobseeker']), async (r
         '',
         'application_card',
         JSON.stringify(cardPayload),
-        new Date().toISOString()
+        new Date()
       ]
     );
 
@@ -532,7 +532,7 @@ router.post('/:id/apply', authenticate, requireIdentity(['jobseeker']), async (r
       await run(
         `INSERT INTO messages (from_user_id, to_user_id, content, message_type, payload_json, created_at)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [req.user.id, targetJob.recruiter_user_id, commonPhrase, 'text', null, new Date().toISOString()]
+        [req.user.id, targetJob.recruiter_user_id, commonPhrase, 'text', null, new Date()]
       );
     }
 

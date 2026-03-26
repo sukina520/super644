@@ -280,7 +280,7 @@ router.put('/me', authenticate, requireIdentity(['jobseeker']), async (req, res)
       commonPhrase
     } = req.body;
 
-    const now = new Date().toISOString();
+    const now = new Date();
     if (jobHuntingStatus && !JOB_HUNTING_STATUS.includes(jobHuntingStatus)) {
       return res.status(400).json({ message: '求职状态不合法' });
     }
@@ -734,7 +734,7 @@ router.post('/seekers/:userId/invite', authenticate, requireIdentity(['recruiter
         commonPhrase,
         'sent',
         JSON.stringify(snapshotJob),
-        new Date().toISOString()
+        new Date()
       ]
     );
 
@@ -753,7 +753,7 @@ router.post('/seekers/:userId/invite', authenticate, requireIdentity(['recruiter
         '',
         'invitation_card',
         JSON.stringify(cardPayload),
-        new Date().toISOString()
+        new Date()
       ]
     );
 
@@ -761,7 +761,7 @@ router.post('/seekers/:userId/invite', authenticate, requireIdentity(['recruiter
       await run(
         `INSERT INTO messages (from_user_id, to_user_id, content, message_type, payload_json, created_at)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [req.user.id, seekerUserId, commonPhrase, 'text', null, new Date().toISOString()]
+        [req.user.id, seekerUserId, commonPhrase, 'text', null, new Date()]
       );
     }
 
